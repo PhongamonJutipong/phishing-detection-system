@@ -1,0 +1,55 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# ===== Virtual environments =====
+venv/
+.venv/
+env/
+
+# ===== ค่าคอนฟิก/ความลับ (ต้องไม่ขึ้น git เด็ดขาด) =====
+.env
+*.env
+!.env.example
+
+# ===== ฐานข้อมูลทดสอบ local (SQLite) =====
+# ไฟล์นี้เก็บเนื้อหาอีเมลจริงที่ทดสอบผ่าน extension ไว้ (content_hash, subject_preview,
+# highlighted_terms) ห้ามขึ้น git เพราะเป็นข้อมูลส่วนตัวของผู้ใช้ที่ทดสอบ
+*.db
+*.sqlite3
+
+# ===== Dataset ดิบ/ที่ประมวลผลแล้ว (ไฟล์ใหญ่ ควรจัดการแยกนอก git) =====
+ml/data/raw/*
+ml/data/processed/*
+!ml/data/raw/.gitkeep
+!ml/data/processed/.gitkeep
+
+# ===== โมเดลที่เทรนแล้ว (build artifact ไม่ใช่ source code) =====
+backend/ml_model/*.pkl
+backend/ml_model/model_metadata.json
+
+# ===== Test / cache =====
+.pytest_cache/
+*.egg-info/
+
+# ===== Node (เผื่ออนาคตมี build tooling ให้ extension) =====
+node_modules/
+
+# ===== Chrome extension: ไฟล์ที่ห้ามขึ้น git เด็ดขาดถ้ามีการ pack/sign =====
+*.pem
+*.crx
+
+# ===== IDE / editor =====
+.vscode/
+.idea/
+*.swp
+
+# ===== OS junk =====
+.DS_Store
+Thumbs.db
+
+# ===== Logs =====
+*.log

@@ -1,0 +1,83 @@
+body {
+  width: 280px;
+  font-family: "Google Sans", Roboto, Arial, sans-serif;
+  margin: 0;
+  padding: 16px;
+  color: #202124;
+}
+
+h1 {
+  font-size: 15px;
+  margin: 0 0 4px;
+}
+
+.pd-subtitle {
+  font-size: 11px;
+  color: #5f6368;
+  margin: 0 0 16px;
+}
+
+.pd-field {
+  margin-bottom: 12px;
+}
+
+.pd-field label {
+  display: block;
+  font-size: 11px;
+  margin-bottom: 4px;
+  color: #5f6368;
+}
+
+.pd-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+button#save-btn {
+  width: 100%;
+  padding: 8px;
+  background: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+button#save-btn:hover {
+  background: #1765cc;
+}
+
+#save-status {
+  font-size: 11px;
+  color: #188038;
+  min-height: 14px;
+}
+
+.pd-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: #5f6368;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9aa0a6;
+}
+
+.dot.online {
+  background: #34a853;
+}
+
+.dot.offline {
+  background: #ea4335;
+}

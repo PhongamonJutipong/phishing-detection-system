@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Phishing Detector</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="pd-popup">
+    <h1>Phishing Email Detector</h1>
+    <p class="pd-subtitle">ตรวจจับอีเมลฟิชชิงอัตโนมัติขณะเปิดอ่านใน Gmail</p>
+
+    <div class="pd-field">
+      <label for="api-url">Backend API URL</label>
+      <input type="text" id="api-url" placeholder="http://localhost:8000/api/v1/analyze" />
+    </div>
+
+    <button id="save-btn">บันทึกการตั้งค่า</button>
+    <p id="save-status"></p>
+
+    <div class="pd-status">
+      <span id="status-dot" class="dot"></span>
+      <span id="status-text">กำลังตรวจสอบการเชื่อมต่อ...</span>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

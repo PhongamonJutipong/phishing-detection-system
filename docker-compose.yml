@@ -1,0 +1,46 @@
+version: "3.9"
+
+# ใช้รันทั้งระบบ (Postgres + backend API) แบบเดียวกับ production จริง
+# dev เร็ว ๆ ยังใช้ `docker-compose up -d postgres` แล้วรัน `uvicorn --reload` เองนอก container ได้เหมือนเดิม
+services:
+  postgres:
+    image: postgres:16
+    container_name: phishing_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-phishing_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-phishing_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-phishing_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - phishing_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-phishing_user} -d ${POSTGRES_DB:-phishing_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .                     # ต้องเป็น repo root เพื่อให้ COPY common/ เข้า image ได้ (ดู backend/Dockerfile)
+      dockerfile: backend/Dockerfile
+    container_name: phishing_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # ในเครือข่าย docker-compose ต้องต่อ postgres ผ่านชื่อ service "postgres" ไม่ใช่ localhost
+      DATABASE_URL: postgresql://${POSTGRES_USER:-phishing_user}:${POSTGRES_PASSWORD:-phishing_pass}@postgres:5432/${POSTGRES_DB:-phishing_db}
+      MODEL_DIR: /app/ml_model
+      RISK_THRESHOLD: ${RISK_THRESHOLD:-0.5}
+      CORS_ORIGINS: ${CORS_ORIGINS:-chrome-extension://*}
+    ports:
+      - "8000:8000"
+    volumes:
+      # mount โมเดลจาก host ทับของที่ build ไว้ใน image เพื่อสลับโมเดลใหม่ได้โดยไม่ต้อง rebuild image
+      - ./backend/ml_model:/app/ml_model
+
+volumes:
+  phishing_pg_data:
