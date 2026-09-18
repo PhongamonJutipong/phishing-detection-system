@@ -15,12 +15,13 @@ WORKDIR /app
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# common/ ต้องมาก่อน เพราะ backend/app/ml/preprocessing.py import จากตรงนี้
+# common/ ต้องมาก่อน เพราะ backend/app/nlp/nlp_process.py import จากตรงนี้
 COPY common/ ./common/
 COPY backend/app/ ./app/
 
 # ไฟล์โมเดล .pkl (ถ้ามีตอน build) — โปรดักชันจริงควรอัปโหลด/mount แยกแทนการฝังใน image
 COPY backend/ml_model/ ./ml_model/
+RUN mkdir -p /app/logs
 
 EXPOSE 8000
 

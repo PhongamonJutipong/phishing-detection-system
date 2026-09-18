@@ -34,13 +34,19 @@ services:
       # ในเครือข่าย docker-compose ต้องต่อ postgres ผ่านชื่อ service "postgres" ไม่ใช่ localhost
       DATABASE_URL: postgresql://${POSTGRES_USER:-phishing_user}:${POSTGRES_PASSWORD:-phishing_pass}@postgres:5432/${POSTGRES_DB:-phishing_db}
       MODEL_DIR: /app/ml_model
-      RISK_THRESHOLD: ${RISK_THRESHOLD:-0.5}
-      CORS_ORIGINS: ${CORS_ORIGINS:-chrome-extension://*}
+      MIN_RISK_THRESHOLD: ${MIN_RISK_THRESHOLD:-0.5}
+      SUSPICIOUS_THRESHOLD: ${SUSPICIOUS_THRESHOLD:-0.3}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      LOG_FILE: /app/logs/backend.log
+      CORS_ORIGINS: ${CORS_ORIGINS:-chrome-extension://*,https://mail.google.com}
     ports:
       - "8000:8000"
     volumes:
       # mount โมเดลจาก host ทับของที่ build ไว้ใน image เพื่อสลับโมเดลใหม่ได้โดยไม่ต้อง rebuild image
       - ./backend/ml_model:/app/ml_model
+      - phishing_logs:/app/logs
 
 volumes:
   phishing_pg_data:
+  phishing_logs:

@@ -1,0 +1,58 @@
+# การบูรณาการอย่างต่อเนื่อง (CI) และการส่งมอบอย่างต่อเนื่อง (CD) — บทที่ 3.1.5
+#  - test: รัน pytest ทุกครั้งที่ push / เปิด pull request
+#  - docker: build image ของ backend เพื่อยืนยันว่า deploy ได้จริง
+#  - retrain: สั่งเทรนโมเดลใหม่ด้วยมือ (workflow_dispatch) เมื่อมี dataset ใหม่ แล้วเก็บไฟล์โมเดลเป็น artifact
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      retrain:
+        description: "เทรนโมเดลใหม่จาก ml/data (ใช้ชุดข้อมูลจำลองถ้าไม่มีข้อมูลจริง)"
+        type: boolean
+        default: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r backend/requirements.txt -r ml/requirements.txt -r requirements-dev.txt
+      - run: pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f backend/Dockerfile -t phishing-backend:ci .
+
+  retrain:
+    if: github.event_name == 'workflow_dispatch' && inputs.retrain
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r ml/requirements.txt
+      - working-directory: ml
+        run: |
+          python preprocess.py --include-mock
+          python evaluate.py
+          python train.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ml-model
+          path: |
+            backend/ml_model/
+            ml/results/

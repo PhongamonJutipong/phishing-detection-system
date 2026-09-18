@@ -28,8 +28,8 @@ ml/data/processed/*
 !ml/data/processed/.gitkeep
 
 # ===== โมเดลที่เทรนแล้ว (build artifact ไม่ใช่ source code) =====
-backend/ml_model/*.pkl
-backend/ml_model/model_metadata.json
+backend/ml_model/**/*.pkl
+backend/ml_model/**/model_metadata.json
 
 # ===== Test / cache =====
 .pytest_cache/
@@ -53,3 +53,8 @@ Thumbs.db
 
 # ===== Logs =====
 *.log
+logs/
+
+# ===== ผลการประเมิน (สร้างใหม่ได้จากสคริปต์) =====
+ml/results/
+evaluation/results/

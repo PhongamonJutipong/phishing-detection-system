@@ -1,72 +1,117 @@
 """
-Smoke test ของ FastAPI endpoints — ไม่พึ่งไฟล์โมเดล .pkl จริง (ใช้ FakeModelService
-override ผ่าน dependency_overrides แทน) เพื่อให้ test รันผ่านได้แม้ยังไม่ได้เทรนโมเดล
-หรือรันบนเครื่อง CI ที่ไม่มีไฟล์ ml_model/*.pkl
+ทดสอบ API ตาม UC-04 / UC-05 / UC-06 ด้วยโมเดลขนาดเล็กของจริง (ดู conftest.py)
 """
-from fastapi.testclient import TestClient
+from app.db.database import SessionLocal
+from app.db.database_manager import DatabaseManager
+from app.db.models import DetectionModel, DetectionResult, Email, FeatureVector, TfidfFeature, TokenizedWord
+
+EN_PHISHING = {
+    "subject": "Security alert",
+    "body_content": "Urgent: your account has been suspended. Please verify your identity immediately "
+                    "and confirm your password at http://secure-update-login.com within 24 hours.",
+}
+EN_NORMAL = {"subject": "Meeting", "body_content": "Hi team, attaching the minutes from today's meeting. See you on Friday."}
+TH_PHISHING = {
+    "subject": "[แจ้งเตือนด่วน] บัญชีของคุณถูกระงับชั่วคราว",
+    "body_content": "กรุณายืนยันตัวตนและกรอกรหัสผ่านภายใน 24 ชั่วโมง มิฉะนั้นบัญชีจะถูกปิดถาวร http://verify-login.com",
+}
 
 
-class FakeModelService:
-    metadata = {"model_type": "fake-for-test", "metrics": {"accuracy": 0.99}}
-
-    def predict(self, subject: str, body: str) -> dict:
-        is_phishing = "urgent" in body.lower() or "verify" in body.lower()
-        return {
-            "risk_score": 0.95 if is_phishing else 0.05,
-            "is_phishing": is_phishing,
-            "highlights": [{"phrase": "urgent", "reason": "ความเร่งด่วน"}] if is_phishing else [],
-        }
-
-
-def _make_client():
-    from app.main import app
-    from app.ml.model_service import get_model_service
-
-    app.dependency_overrides[get_model_service] = lambda: FakeModelService()
-    return TestClient(app)
-
-
-def test_root_returns_ok():
-    client = _make_client()
-    resp = client.get("/")
+def test_api_root_returns_ok(client):
+    resp = client.get("/api")
     assert resp.status_code == 200
     assert "message" in resp.json()
 
 
-def test_health_check():
-    client = _make_client()
-    resp = client.get("/api/v1/health")
+def test_web_page_is_served(client):
+    """หน้าเว็บสำหรับกรอกอีเมลถูกเสิร์ฟจาก origin เดียวกับ API"""
+    resp = client.get("/")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    assert "text/html" in resp.headers["content-type"]
+    assert "analyze-form" in resp.text
+    assert client.get("/app.js").status_code == 200
+    assert client.get("/style.css").status_code == 200
 
 
-def test_model_info_reflects_injected_fake_model():
-    client = _make_client()
-    resp = client.get("/api/v1/model-info")
-    assert resp.status_code == 200
-    body = resp.json()
+def test_health_reports_models_and_database(client):
+    body = client.get("/api/v1/health").json()
+    assert body["status"] == "ok"
+    assert body["models_loaded"] == ["en", "th"]
+    assert body["database"] == "ok"
+
+
+def test_model_info_lists_each_language(client):
+    body = client.get("/api/v1/model-info").json()
     assert body["available"] is True
-    assert body["model_type"] == "fake-for-test"
+    assert set(body["models"]) == {"en", "th"}
 
 
-def test_analyze_flags_phishing_email():
-    client = _make_client()
-    resp = client.post(
-        "/api/v1/analyze",
-        json={"subject": "Urgent!", "body": "Please verify your account urgent now"},
-    )
-    assert resp.status_code == 200
+def test_analyze_english_phishing(client):
+    resp = client.post("/api/v1/analyze", json=EN_PHISHING)
+    assert resp.status_code == 200, resp.text
     data = resp.json()
+    assert data["language"] == "en"
     assert data["is_phishing"] is True
-    assert 0.0 <= data["risk_score"] <= 1.0
-    assert len(data["highlights"]) >= 1
+    assert data["classification"] == "phishing"
+    assert data["risk_level"] == "dangerous"
+    assert 50 <= data["risk_percentage"] <= 100
+    assert data["suspicious_keywords"], "ควรมีคำเสี่ยงจากโมเดลสำหรับไฮไลต์"
+    categories = {i["category"] for i in data["indicators"]}
+    assert {"urgency", "credential_request", "suspicious_link"} <= categories
+    assert data["result_id"]
 
 
-def test_analyze_caches_repeat_email_by_hash():
-    client = _make_client()
-    payload = {"subject": "Hi", "body": "just checking in about the meeting"}
-    first = client.post("/api/v1/analyze", json=payload)
-    second = client.post("/api/v1/analyze", json=payload)
-    assert first.status_code == second.status_code == 200
-    # ครั้งที่สองต้องคืนผลเดิมจาก cache (content_hash เดียวกัน) ไม่ใช่ error
-    assert first.json()["risk_score"] == second.json()["risk_score"]
+def test_analyze_english_normal_email_is_safe(client):
+    data = client.post("/api/v1/analyze", json=EN_NORMAL).json()
+    assert data["is_phishing"] is False
+    assert data["risk_level"] in {"safe", "suspicious"}
+
+
+def test_analyze_thai_phishing_uses_thai_model(client):
+    data = client.post("/api/v1/analyze", json=TH_PHISHING).json()
+    assert data["language"] == "th"
+    assert "th" in data["language_scores"]
+    assert data["is_phishing"] is True
+
+
+def test_analyze_rejects_blank_body(client):
+    resp = client.post("/api/v1/analyze", json={"subject": "x", "body_content": "   "})
+    assert resp.status_code == 422
+
+
+def test_analyze_returns_503_when_no_model(client, tmp_path):
+    from app.main import app
+    from app.ml.model_registry import ModelRegistry, get_model_registry
+
+    empty = ModelRegistry(str(tmp_path))
+    empty.load_all()
+    app.dependency_overrides[get_model_registry] = lambda: empty
+    resp = client.post("/api/v1/analyze", json=EN_PHISHING)
+    assert resp.status_code == 503
+    assert resp.json()["code"] == "MODEL_UNAVAILABLE"
+
+
+def test_scan_is_saved_per_erd_and_content_is_not_duplicated(client):
+    client.post("/api/v1/analyze", json=EN_PHISHING)
+    client.post("/api/v1/analyze", json=EN_PHISHING)
+
+    with SessionLocal() as db:
+        assert db.query(Email).count() == 1                  # UC-04 ทางเลือก 7.1: ไม่บันทึกเนื้อหาซ้ำ
+        assert db.query(DetectionResult).count() == 2        # แต่บันทึกประวัติการสแกนทุกครั้ง
+        assert db.query(DetectionModel).count() == 1
+        assert db.query(TokenizedWord).count() > 0
+        assert db.query(TfidfFeature).count() > 0
+        assert db.query(FeatureVector).count() > 0
+
+        email = db.query(Email).one()
+        assert "suspended" not in email.body_encrypted      # เก็บแบบเข้ารหัส
+        assert "suspended" in DatabaseManager(db).decrypt(email.body_encrypted)
+
+
+def test_admin_endpoints_require_token(client):
+    assert client.get("/api/v1/stats").status_code == 401
+    resp = client.get("/api/v1/stats", headers={"X-Admin-Token": "test-admin-token"})
+    assert resp.status_code == 200
+    assert "total_scans" in resp.json()
+    reload = client.post("/api/v1/model/reload", headers={"X-Admin-Token": "test-admin-token"})
+    assert reload.status_code == 200

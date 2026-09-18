@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ตรวจสอบอีเมลฟิชชิง</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🛡️</text></svg>" />
+</head>
+<body>
+  <header class="topbar">
+    <h1 data-i18n="appTitle"></h1>
+    <div class="topbar-right">
+      <span id="server-status" class="status"><span class="dot"></span><span id="server-status-text"></span></span>
+      <button id="lang-toggle" type="button" class="link-btn">EN</button>
+    </div>
+  </header>
+
+  <main>
+    <p class="lead" data-i18n="lead"></p>
+
+    <form id="analyze-form" novalidate>
+      <label for="email-text" class="sr-only" data-i18n="inputLabel"></label>
+      <textarea id="email-text" rows="12" spellcheck="false" autofocus></textarea>
+
+      <div class="form-row">
+        <div class="form-hint">
+          <span id="char-count"></span>
+          <button type="button" id="sample-btn" class="link-btn" data-i18n="sample"></button>
+          <button type="button" id="clear-btn" class="link-btn" data-i18n="clear"></button>
+        </div>
+        <button type="submit" id="analyze-btn" class="primary">
+          <span id="analyze-label" data-i18n="analyze"></span>
+        </button>
+      </div>
+      <p id="form-error" class="form-error" role="alert"></p>
+    </form>
+
+    <section id="result" class="result" hidden aria-live="polite">
+      <div class="score-card">
+        <div id="score-ring" class="score-ring">
+          <span id="score-value"></span>
+        </div>
+        <div class="score-info">
+          <h2 id="level-text"></h2>
+          <p id="recommend-text"></p>
+          <dl class="facts">
+            <dt data-i18n="factClassification"></dt><dd id="fact-classification"></dd>
+            <dt data-i18n="factLanguage"></dt><dd id="fact-language"></dd>
+            <dt data-i18n="factTime"></dt><dd id="fact-time"></dd>
+          </dl>
+        </div>
+      </div>
+
+      <section class="panel">
+        <h3 data-i18n="detailsTitle"></h3>
+        <ul id="details-list"></ul>
+      </section>
+
+      <section class="panel" id="highlight-panel">
+        <h3 data-i18n="highlightTitle"></h3>
+        <div id="highlighted-text" class="email-preview"></div>
+      </section>
+
+      <p class="caution" data-i18n="caution"></p>
+    </section>
+  </main>
+
+  <footer>
+    <span data-i18n="footer"></span>
+    <a href="/docs" target="_blank" rel="noopener">API</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

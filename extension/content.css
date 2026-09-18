@@ -1,33 +1,164 @@
-.phishing-detector-banner {
+/* ===== ป้ายแสดงระดับความเสี่ยง (รูปที่ 3.11-3.12) ===== */
+.pd-badge {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2147483000;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  margin: 8px 0;
-  border-radius: 8px;
+  gap: 10px;
+  max-width: calc(100vw - 48px);
+  padding: 12px 20px;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   font-family: "Google Sans", Roboto, Arial, sans-serif;
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1.3;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  animation: pd-slide-in 0.25s ease-out;
+}
+.pd-badge:hover { filter: brightness(1.05); }
+.pd-badge-icon { font-size: 18px; }
+.pd-badge-score { font-weight: 700; }
+.pd-badge-link { font-size: 12px; opacity: 0.9; white-space: nowrap; }
+
+.pd-badge.pd-level-dangerous { background: #d93025; }
+.pd-badge.pd-level-suspicious { background: #f9ab00; color: #202124; }
+.pd-badge.pd-level-safe { background: #188038; }
+.pd-badge.pd-level-loading { background: #5f6368; cursor: default; }
+.pd-badge.pd-level-error { background: #3c4043; }
+
+.pd-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: pd-spin 0.8s linear infinite;
 }
 
-.phishing-detector-banner.risk-high {
-  background: #fdecea;
-  border: 1px solid #f5c2c0;
-  color: #611a15;
-}
+@keyframes pd-spin { to { transform: rotate(360deg); } }
+@keyframes pd-slide-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-.phishing-detector-banner.risk-low {
-  background: #e6f4ea;
-  border: 1px solid #b7e1c0;
-  color: #1e4620;
-}
-
-.pd-icon {
-  font-size: 16px;
-}
-
-mark.phishing-detector-highlight {
-  background-color: #ffe08a;
-  border-radius: 2px;
+/* ===== ไฮไลต์คำเสี่ยง ===== */
+mark.pd-highlight {
+  background: #fad2cf;
+  color: #c5221f;
+  font-weight: 700;
+  border-radius: 3px;
   padding: 0 2px;
   cursor: help;
 }
+mark.pd-highlight.pd-reason-urgency,
+mark.pd-highlight.pd-reason-credential_request { background: #f6aea9; }
+
+/* ===== หน้าต่างรายงาน (รูปที่ 3.13-3.14) ===== */
+.pd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(32, 33, 36, 0.45);
+  backdrop-filter: blur(4px);
+  font-family: "Google Sans", Roboto, Arial, sans-serif;
+}
+
+.pd-modal {
+  width: 380px;
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  color: #202124;
+}
+.pd-modal-header { padding: 22px 20px 18px; text-align: center; color: #fff; }
+.pd-modal.pd-level-dangerous .pd-modal-header { background: #d93025; }
+.pd-modal.pd-level-suspicious .pd-modal-header { background: #f9ab00; color: #202124; }
+.pd-modal.pd-level-safe .pd-modal-header { background: #188038; }
+.pd-modal-icon { font-size: 32px; }
+.pd-modal-title { margin: 8px 0 0; font-size: 19px; font-weight: 700; color: inherit; }
+
+.pd-modal-body { padding: 18px 20px 20px; font-size: 13px; }
+.pd-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e8eaed;
+}
+.pd-score-label { font-weight: 700; font-size: 14px; }
+.pd-score-value { font-weight: 800; font-size: 22px; }
+.pd-level-dangerous .pd-score-value { color: #d93025; }
+.pd-level-suspicious .pd-score-value { color: #e37400; }
+.pd-level-safe .pd-score-value { color: #188038; }
+
+.pd-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 12px 0 0; }
+.pd-facts dt { color: #5f6368; }
+.pd-facts dd { margin: 0; font-weight: 600; }
+
+.pd-section-title { margin: 14px 0 6px; font-size: 14px; color: #3c4043; }
+.pd-details { margin: 0; padding-left: 18px; }
+.pd-details li { margin: 4px 0; }
+.pd-phrases { color: #5f6368; }
+.pd-recommend { margin: 0; }
+.pd-caution {
+  margin: 14px 0;
+  padding: 8px 10px;
+  border-left: 3px solid #d93025;
+  background: #f8f9fa;
+  color: #5f6368;
+  font-size: 11px;
+  font-style: italic;
+}
+.pd-close-btn {
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #333;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pd-close-btn:hover { background: #111; }
+
+/* ===== หน้าต่างนโยบายความเป็นส่วนตัว (รูปที่ 3.15-3.16) ===== */
+.pd-privacy {
+  width: 560px;
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: #333;
+  color: #fff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+.pd-privacy-title {
+  margin: 0;
+  padding: 8px 16px;
+  background: #3f72f5;
+  color: #fff;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 500;
+}
+.pd-privacy-body { padding: 12px 24px; font-size: 14px; line-height: 1.55; }
+.pd-privacy-body p { margin: 0 0 10px; }
+.pd-privacy-actions { display: flex; justify-content: flex-end; gap: 24px; padding: 4px 24px 18px; }
+.pd-privacy-actions button {
+  min-width: 84px;
+  padding: 8px 14px;
+  border: 0;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+.pd-btn-reject { background: #f33a3a; }
+.pd-btn-accept { background: #3f72f5; }

@@ -7,20 +7,47 @@
 </head>
 <body>
   <div class="pd-popup">
-    <h1>Phishing Email Detector</h1>
-    <p class="pd-subtitle">ตรวจจับอีเมลฟิชชิงอัตโนมัติขณะเปิดอ่านใน Gmail</p>
-
-    <div class="pd-field">
-      <label for="api-url">Backend API URL</label>
-      <input type="text" id="api-url" placeholder="http://localhost:8000/api/v1/analyze" />
-    </div>
-
-    <button id="save-btn">บันทึกการตั้งค่า</button>
-    <p id="save-status"></p>
+    <h1 data-i18n="title"></h1>
+    <p class="pd-subtitle" data-i18n="subtitle"></p>
 
     <div class="pd-status">
       <span id="status-dot" class="dot"></span>
-      <span id="status-text">กำลังตรวจสอบการเชื่อมต่อ...</span>
+      <span id="status-text"></span>
+    </div>
+
+    <section id="last-result" class="pd-last" hidden>
+      <div class="pd-last-label" data-i18n="lastResult"></div>
+      <div class="pd-last-row">
+        <span id="last-score" class="pd-chip"></span>
+        <span id="last-subject" class="pd-last-subject"></span>
+      </div>
+    </section>
+
+    <label class="pd-toggle">
+      <input type="checkbox" id="scan-enabled" />
+      <span data-i18n="scanEnabled"></span>
+    </label>
+
+    <div class="pd-field">
+      <label for="ui-language" data-i18n="language"></label>
+      <select id="ui-language">
+        <option value="">Auto</option>
+        <option value="th">ภาษาไทย</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+
+    <div class="pd-field">
+      <label for="api-url" data-i18n="apiUrl"></label>
+      <input type="url" id="api-url" placeholder="http://127.0.0.1:8000/api/v1/analyze" />
+    </div>
+
+    <button id="save-btn" type="button" data-i18n="save"></button>
+    <p id="save-status" role="status"></p>
+
+    <div class="pd-privacy-row">
+      <span id="privacy-status"></span>
+      <button id="privacy-reset" type="button" class="pd-link" data-i18n="privacyReset"></button>
     </div>
   </div>
 

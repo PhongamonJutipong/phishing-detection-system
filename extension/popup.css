@@ -1,5 +1,5 @@
 body {
-  width: 280px;
+  width: 300px;
   font-family: "Google Sans", Roboto, Arial, sans-serif;
   margin: 0;
   padding: 16px;
@@ -14,21 +14,71 @@ h1 {
 .pd-subtitle {
   font-size: 11px;
   color: #5f6368;
-  margin: 0 0 16px;
+  margin: 0 0 12px;
 }
 
-.pd-field {
+.pd-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 12px;
+  font-size: 11px;
+  color: #5f6368;
 }
 
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9aa0a6;
+}
+.dot.online { background: #34a853; }
+.dot.degraded { background: #f9ab00; }
+.dot.offline { background: #ea4335; }
+
+.pd-last {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid #e8eaed;
+  border-radius: 8px;
+}
+.pd-last-label { font-size: 11px; color: #5f6368; margin-bottom: 4px; }
+.pd-last-row { display: flex; align-items: center; gap: 8px; }
+.pd-last-subject {
+  flex: 1;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pd-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+.pd-chip.pd-level-dangerous { background: #d93025; }
+.pd-chip.pd-level-suspicious { background: #f9ab00; color: #202124; }
+.pd-chip.pd-level-safe { background: #188038; }
+
+.pd-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.pd-field { margin-bottom: 12px; }
 .pd-field label {
   display: block;
   font-size: 11px;
   margin-bottom: 4px;
   color: #5f6368;
 }
-
-.pd-field input {
+.pd-field input,
+.pd-field select {
   width: 100%;
   box-sizing: border-box;
   padding: 6px 8px;
@@ -47,37 +97,31 @@ button#save-btn {
   font-size: 12px;
   cursor: pointer;
 }
-
-button#save-btn:hover {
-  background: #1765cc;
-}
+button#save-btn:hover { background: #1765cc; }
 
 #save-status {
   font-size: 11px;
   color: #188038;
   min-height: 14px;
+  margin: 4px 0;
 }
+#save-status.error { color: #d93025; }
 
-.pd-status {
+.pd-privacy-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 12px;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e8eaed;
   font-size: 11px;
   color: #5f6368;
 }
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #9aa0a6;
-}
-
-.dot.online {
-  background: #34a853;
-}
-
-.dot.offline {
-  background: #ea4335;
+.pd-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #1a73e8;
+  font-size: 11px;
+  cursor: pointer;
 }

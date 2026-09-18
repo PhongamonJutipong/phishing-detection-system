@@ -5,15 +5,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from common.text_cleaning import clean_text, remove_noise, tokenize
+from common.text_cleaning import clean_text, detect_language, remove_noise, script_ratios, tokenize
 
 
 def test_remove_noise_masks_url_and_email():
     # หมายเหตุ: remove_noise ลบ punctuation (รวม < >) หลังจากแทรก token <url>/<email>
-    # ผลคือ token ที่เหลือจริง ๆ คือ "url"/"email" แบบไม่มีวงเล็บ ไม่ใช่ "<url>" ตามที่
-    # docstring บอกไว้ ("แทนที่ด้วย token พิเศษ") — พฤติกรรมนี้ยังคง "สม่ำเสมอ" ระหว่าง
-    # ตอนเทรนกับตอนใช้งานจริงเพราะเรียกฟังก์ชันเดียวกันทั้งคู่ (โมเดลจึงยังทำงานถูกต้อง)
-    # แต่ทีมควรรู้ไว้เผื่อจะแก้ให้ตรงกับ docstring ในอนาคต (ถ้าแก้ ต้องเทรนโมเดลใหม่ด้วย)
+    # ผลคือ token ที่เหลือจริง ๆ คือ "url"/"email" แบบไม่มีวงเล็บ — สม่ำเสมอระหว่างตอนเทรนกับใช้งานจริง
     text = remove_noise("Click http://evil.com or email me@test.com NOW!!!")
     assert "url" in text
     assert "email" in text
@@ -22,8 +19,7 @@ def test_remove_noise_masks_url_and_email():
 
 
 def test_clean_text_removes_english_stopwords_keeps_content_words():
-    result = clean_text("this is a test message for you")
-    tokens = result.split()
+    tokens = clean_text("this is a test message for you").split()
     assert "this" not in tokens
     assert "is" not in tokens
     assert "test" in tokens
@@ -36,5 +32,18 @@ def test_clean_text_handles_non_string_gracefully():
 
 
 def test_tokenize_splits_english_text():
-    tokens = tokenize("hello world")
-    assert tokens == ["hello", "world"]
+    assert tokenize("hello world") == ["hello", "world"]
+
+
+def test_detect_language_ignores_urls():
+    assert detect_language("Please verify your account") == "en"
+    assert detect_language("กรุณายืนยันตัวตนที่ http://verify-account-login.com/secure") == "th"
+    ratios = script_ratios("กรุณายืนยันตัวตนที่ http://verify-account-login.com/secure")
+    assert ratios["en"] == 0.0
+
+
+def test_thai_custom_dictionary_keeps_phishing_terms_whole():
+    import pytest
+
+    pytest.importorskip("pythainlp")
+    assert "ยืนยันตัวตน" in tokenize("กรุณายืนยันตัวตนทันที")
