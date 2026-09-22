@@ -25,7 +25,11 @@ def test_api_root_returns_ok(client):
 
 def test_web_page_is_served(client):
     """หน้าเว็บสำหรับกรอกอีเมลถูกเสิร์ฟจาก origin เดียวกับ API"""
-    resp = client.get("/")
+    landing = client.get("/")
+    assert landing.status_code == 200
+    assert "text/html" in landing.headers["content-type"]
+
+    resp = client.get("/scan.html")
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
     assert "analyze-form" in resp.text
