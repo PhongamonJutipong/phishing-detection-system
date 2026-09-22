@@ -1,6 +1,6 @@
 const POPUP_TEXT = {
   th: {
-    title: "Phishing Email Detector",
+    title: "PhishMail",
     subtitle: "ตรวจจับอีเมลฟิชชิงอัตโนมัติขณะเปิดอ่านใน Gmail",
     lastResult: "ผลการวิเคราะห์ล่าสุด",
     scanEnabled: "เปิดการตรวจจับอัตโนมัติ",
@@ -19,7 +19,7 @@ const POPUP_TEXT = {
     privacyReset: "ถามใหม่อีกครั้ง",
   },
   en: {
-    title: "Phishing Email Detector",
+    title: "PhishMail",
     subtitle: "Automatically detects phishing emails while reading Gmail",
     lastResult: "Latest analysis",
     scanEnabled: "Enable automatic detection",

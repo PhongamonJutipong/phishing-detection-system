@@ -131,34 +131,64 @@ mark.pd-highlight.pd-reason-credential_request { background: #f6aea9; }
 .pd-close-btn:hover { background: #111; }
 
 /* ===== หน้าต่างนโยบายความเป็นส่วนตัว (รูปที่ 3.15-3.16) ===== */
+/* ===== หน้าข้อตกลงความเป็นส่วนตัว — ชุดสีเดียวกับหน้าเว็บ PhishMail ===== */
+/* เขียนกฎแยกบน .pd-privacy-overlay แทนการแก้ .pd-overlay เพราะ .pd-overlay ใช้ร่วมกับ modal รายงานผล */
+.pd-privacy-overlay {
+  background: rgba(11, 15, 20, 0.72);
+  backdrop-filter: blur(6px);
+  font-family: "IBM Plex Sans", "IBM Plex Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
 .pd-privacy {
   width: 560px;
   max-width: 100%;
   max-height: calc(100vh - 32px);
   overflow: auto;
-  background: #333;
-  color: #fff;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  border: 1px solid #232B35;
+  border-radius: 16px;
+  background: #12181F;
+  color: #E7ECEF;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
 .pd-privacy-title {
   margin: 0;
-  padding: 8px 16px;
-  background: #3f72f5;
-  color: #fff;
-  text-align: center;
-  font-size: 26px;
-  font-weight: 500;
+  padding: 22px 28px 18px;
+  border-bottom: 1px solid #1E262F;
+  background: none;
+  color: #F4F7F9;
+  text-align: left;
+  font-family: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
 }
-.pd-privacy-body { padding: 12px 24px; font-size: 14px; line-height: 1.55; }
-.pd-privacy-body p { margin: 0 0 10px; }
-.pd-privacy-actions { display: flex; justify-content: flex-end; gap: 24px; padding: 4px 24px 18px; }
+.pd-privacy-body {
+  padding: 20px 28px 4px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #8B96A3;
+}
+.pd-privacy-body p { margin: 0 0 12px; }
+.pd-privacy-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 28px 24px;
+}
 .pd-privacy-actions button {
-  min-width: 84px;
-  padding: 8px 14px;
-  border: 0;
-  color: #fff;
-  font-size: 16px;
+  min-width: 96px;
+  padding: 11px 20px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.pd-btn-reject { background: #f33a3a; }
-.pd-btn-accept { background: #3f72f5; }
+.pd-privacy-actions button:focus-visible { outline: 2px solid #43C6B4; outline-offset: 2px; }
+.pd-btn-reject { background: transparent; border-color: #232B35; color: #E7ECEF; }
+.pd-btn-reject:hover { border-color: #43C6B4; color: #43C6B4; }
+.pd-btn-accept { background: #43C6B4; color: #07231F; }
+.pd-btn-accept:hover { background: #55D4C2; }

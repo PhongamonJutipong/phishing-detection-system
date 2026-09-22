@@ -26,7 +26,7 @@ phishing-detection-system/
 │       ├── db/database_manager.py  # Class DatabaseManager (checkData, encrypt, saveSecureLog, getFeedbackData)
 │       ├── services/phishing_analyzer.py  # Class PhishingAnalyzer (processRequest, generateResponse)
 │       ├── api/routes.py        # REST API
-│       └── web/                 # หน้าเว็บตรวจสอบอีเมล (วางข้อความ -> กดตรวจสอบ) เสิร์ฟที่ /
+│       └── web/                 # หน้าเว็บ PhishMail: / (หน้าแรก), /scan.html (ตรวจสอบ), /dashboard.html, /login.html
 │
 ├── extension/                   # Chrome Extension (Manifest V3)
 │   ├── config.js                # Class Config
@@ -50,16 +50,19 @@ phishing-detection-system/
 
 | แบบ | ใช้เมื่อ | ขั้นตอน |
 |---|---|---|
-| **หน้าเว็บ** `http://127.0.0.1:8000/` | ตรวจอีเมลที่คัดลอกมาจากที่ไหนก็ได้ / ใช้ตอนสาธิตและเก็บผลประเมิน | วางข้อความ -> กด **ตรวจสอบอีเมล** (หรือ Ctrl+Enter) |
+| **หน้าเว็บ** `http://127.0.0.1:8000/scan.html` | ตรวจอีเมลที่คัดลอกมาจากที่ไหนก็ได้ / ใช้ตอนสาธิตและเก็บผลประเมิน | วางข้อความ -> กด **ตรวจสอบอีเมล** (หรือ Ctrl+Enter) |
 | **ส่วนขยาย Chrome** | ตรวจอัตโนมัติขณะเปิดอ่านใน Gmail | ติดตั้งครั้งเดียว แล้วเปิดอีเมลได้เลย |
 
 ทั้งสองแบบเรียก `POST /api/v1/analyze` ตัวเดียวกัน จึงได้ผลลัพธ์เหมือนกัน
 
 ### หน้าเว็บ
 
-เปิด `http://127.0.0.1:8000/` หลังรัน backend — ไม่ต้องติดตั้งหรือล็อกอิน มีปุ่ม **ใส่ตัวอย่างอีเมล** สำหรับสาธิต
+เปิด `http://127.0.0.1:8000/scan.html` หลังรัน backend — ไม่ต้องติดตั้งหรือล็อกอิน มีปุ่ม **ใส่ตัวอย่างอีเมล** สำหรับสาธิต
 และสลับภาษาไทย/อังกฤษได้ที่มุมขวาบน ผลลัพธ์แสดงวงกลมเปอร์เซ็นต์ความเสี่ยง 3 สี, ประเภทของอีเมล,
 รายละเอียดการวิเคราะห์ และเนื้อหาอีเมลที่ไฮไลต์คำเสี่ยงไว้ (มุมขวาบนมีไฟสถานะบอกว่าระบบพร้อมใช้งานหรือไม่)
+
+หน้าอื่นในชุดเดียวกัน: `/` หน้าแรกแนะนำระบบ, `/dashboard.html` หน้าภาพรวมผู้ดูแล (แบบร่าง ใช้ข้อมูลตัวอย่าง),
+`/login.html` หน้าเข้าสู่ระบบ (แบบร่าง ไม่บังคับใช้งาน — ตรวจอีเมลได้โดยไม่ต้องเข้าสู่ระบบ)
 
 ## การทำงานของระบบ (UC-01)
 
@@ -76,7 +79,8 @@ phishing-detection-system/
 
 | Method | Path | คำอธิบาย |
 |---|---|---|
-| GET | `/` | หน้าเว็บตรวจสอบอีเมล |
+| GET | `/` | หน้าแรก (แนะนำระบบ) |
+| GET | `/scan.html` | หน้าเว็บตรวจสอบอีเมล |
 | POST | `/api/v1/analyze` | body: `{subject, sender, body_content, email_id?, time_stamp?}` -> `risk_score, risk_percentage, risk_level, classification, language, highlights, indicators, ...` (503 ถ้าโมเดลยังไม่พร้อม) |
 | GET | `/api/v1/health` | สถานะโมเดลแต่ละภาษา + ฐานข้อมูล |
 | GET | `/api/v1/model-info` | metadata ของโมเดลที่ใช้งานอยู่ |
@@ -105,10 +109,10 @@ phishing-detection-system/
    - หรือแบบ dev: `docker-compose up -d postgres` แล้ว
      ```bash
      cd backend && cp .env.example .env   # ตั้ง ENCRYPTION_KEY และ ADMIN_TOKEN
-     # ถ้ายังไม่มี PostgreSQL ทดสอบด้วย SQLite ได้: DATABASE_URL=sqlite:///./dev.db
+     # DATABASE_URL ต้องชี้ไป PostgreSQL (ค่าตัวอย่างอยู่ใน .env.example)
      uvicorn app.main:app --reload
      ```
-   - หน้าเว็บตรวจสอบอีเมล: http://127.0.0.1:8000/ · Swagger UI: http://127.0.0.1:8000/docs
+   - หน้าแรก: http://127.0.0.1:8000/ · หน้าตรวจสอบอีเมล: http://127.0.0.1:8000/scan.html · Swagger UI: http://127.0.0.1:8000/docs
    - **บน Windows ให้ใช้ `127.0.0.1` แทน `localhost`** — การต่อผ่านชื่อ localhost จะลอง IPv6 (`::1`) ก่อน
      แล้วค่อยถอยมาใช้ IPv4 ซึ่งวัดได้ว่าเสียเวลาคงที่ประมาณ 2 วินาทีต่อ request (เวลาประมวลผลจริงของระบบ
      อยู่ที่ระดับ 10 มิลลิวินาที) ถ้าวัดผลผ่าน localhost จะสรุปผิดว่าไม่ผ่านเกณฑ์ข้อ 1.4.2
