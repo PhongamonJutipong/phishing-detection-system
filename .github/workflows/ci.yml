@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -r backend/requirements.txt -r ml/requirements.txt -r requirements-dev.txt
+      - run: pip install -e ".[ml,dev]"
       - run: pytest -q
 
   docker:
@@ -44,7 +44,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -r ml/requirements.txt
+      - run: pip install -e ".[ml]"
       - working-directory: ml
         run: |
           python preprocess.py --include-mock

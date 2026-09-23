@@ -1,23 +1,16 @@
 """
 เตรียม environment ก่อนรัน test ของ backend:
-1. เติม repo root + backend/ เข้า sys.path ให้ import `app` และ `common` ได้
+1. ตั้งค่า environment ให้ใช้ฐานข้อมูลและโมเดลชั่วคราว (import ได้เลยเพราะติดตั้งด้วย pip install -e .)
 2. ใช้ SQLite ไฟล์ชั่วคราวแทน PostgreSQL จริง, กุญแจเข้ารหัสชั่วคราว, log ลง temp
 3. เทรนโมเดล TF-IDF + Naive Bayes ขนาดเล็กของจริง (ภาษาอังกฤษ + ไทย) ลงโฟลเดอร์ชั่วคราว
    เพื่อทดสอบ pipeline ทั้งหมดโดยไม่ต้องมีไฟล์โมเดลจริงจาก ml/train.py
 """
 import json
 import os
-import sys
 import tempfile
 from pathlib import Path
 
-_BACKEND_DIR = Path(__file__).resolve().parents[1]
-_REPO_ROOT = _BACKEND_DIR.parent
-for _p in (_REPO_ROOT, _BACKEND_DIR):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
-
-from cryptography.fernet import Fernet  # noqa: E402
+from cryptography.fernet import Fernet
 
 _TMP = Path(tempfile.mkdtemp(prefix="phishing_backend_test_"))
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP / 'test.db'}"

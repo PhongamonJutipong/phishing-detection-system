@@ -1,7 +1,8 @@
 # Build context ต้องเป็น repo root (phishing-detection-system/) ไม่ใช่ backend/
-# เพราะต้อง COPY โฟลเดอร์ common/ (ใช้ร่วมกับ ml/) เข้า image ด้วย
-# ตัวอย่างคำสั่ง build ตรง ๆ (ปกติใช้ผ่าน docker-compose แทน):
+# เพราะต้อง COPY โฟลเดอร์ common/ (ใช้ร่วมกับ ml/) และ pyproject.toml เข้า image ด้วย
+# ตัวอย่างคำสั่ง build ตรง ๆ (ปกติใช้ผ่าน docker compose แทน):
 #   docker build -f backend/Dockerfile -t phishing-backend .
+
 # ---------- ขั้นที่ 1: build หน้าเว็บ Angular ----------
 # แยกเป็นคนละขั้นเพื่อไม่ให้ Node.js และ node_modules (หลายร้อย MB) ติดไปกับ image สุดท้าย
 # image ที่ได้จึงมีแต่ไฟล์ static ที่ build เสร็จแล้วเท่านั้น
@@ -25,23 +26,24 @@ RUN npm run build
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# ติดตั้ง dependencies ก่อนแยกจาก layer โค้ด เพื่อให้ Docker cache layer นี้ไว้
-# (โค้ดเปลี่ยนบ่อยกว่า dependencies มาก การเรียงแบบนี้ทำให้ build รอบถัด ๆ ไปเร็วขึ้นมาก)
-COPY backend/requirements.txt ./backend/requirements.txt
-RUN pip install --no-cache-dir -r backend/requirements.txt
-
-# common/ ต้องมาก่อน เพราะ backend/app/nlp/nlp_process.py import จากตรงนี้
+# วางซอร์สให้ตรงโครงสร้างเดียวกับ repo เพราะ pyproject.toml ชี้ package-dir แบบสัมพัทธ์
+# (common -> common/, app -> backend/app/)
+COPY pyproject.toml README.md ./
 COPY common/ ./common/
-COPY backend/app/ ./app/
+COPY backend/app/ ./backend/app/
 
-# หน้าเว็บที่ build เสร็จจากขั้นที่ 1 — ต้องมาหลัง COPY backend/app/ เพราะเขียนทับโฟลเดอร์ web ข้างใน
-# ถ้าสลับลำดับ ไฟล์ที่ build ไว้จะถูกของเก่าทับ
-COPY --from=web-builder /build/backend/app/web/ ./app/web/
+# หน้าเว็บที่ build เสร็จจากขั้นที่ 1 ต้องมาก่อน pip install
+# เพราะประกาศเป็น package-data ของแพ็กเกจ app จึงถูกคัดลอกเข้า site-packages ตอนติดตั้ง
+COPY --from=web-builder /build/backend/app/web/ ./backend/app/web/
+
+# ติดตั้งทั้ง dependencies และตัวโปรเจคเป็นแพ็กเกจจริงในคำสั่งเดียว
+# ใช้ pyproject.toml เป็นแหล่งข้อมูลเดียว ไม่ต้องมี requirements.txt ที่ระบุเวอร์ชันซ้ำ
+# และทำให้ import app.* กับ common.* ได้โดยไม่ต้องตั้ง PYTHONPATH
+RUN pip install --no-cache-dir .
 
 # ไฟล์ migration ต้องอยู่ใน image ด้วย เพราะ entrypoint เรียก alembic upgrade head
 # ก่อนเปิดรับคำขอ (โครงสร้างฐานข้อมูลเป็นของ Alembic ไม่ได้สร้างด้วย create_all แล้ว)

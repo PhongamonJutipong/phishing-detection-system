@@ -86,7 +86,7 @@ python3.11 -m venv .venv
 source .venv/bin/activate          # Windows ใช้ .venv\Scripts\activate
 
 # 2. dependencies
-pip install -r backend/requirements.txt -r ml/requirements.txt -r requirements-dev.txt
+pip install -e ".[ml,dev]"      # ติดตั้งโปรเจคแบบ editable พร้อม dependencies ทั้งหมด
 
 # 3. ไฟล์ตั้งค่า
 cp backend/.env.example backend/.env

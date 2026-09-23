@@ -64,9 +64,35 @@ phishing-detection-system/
 │   ├── benchmark_latency.py     # ค่าความแม่นยำ (3.1), Individual/Mean Latency (3.2–3.3)
 │   └── survey_analysis.py       # ค่าเฉลี่ย, S.D., ร้อยละ, อันตรภาคชั้น + แปลผลตามตารางที่ 3.15
 │
+├── scripts/setup.bat            # ติดตั้งและเริ่มระบบด้วยคำสั่งเดียว (เรียก setup.ps1)
+├── docs/                        # SETUP.md (คู่มือติดตั้ง), privacy-policy.md, chrome-web-store-listing.md
+│
+├── pyproject.toml               # แหล่งข้อมูลเดียวของ dependencies + ตั้งค่า pytest + ประกาศแพ็กเกจ
 ├── .github/workflows/ci.yml     # CI/CD: test, build Docker image, สั่งเทรนโมเดลใหม่
 └── docker-compose.yml           # postgres + backend
 ```
+
+### การจัดการ dependencies
+
+`pyproject.toml` ที่ระดับ repo root เป็น**แหล่งข้อมูลเดียว** ของทั้งรายการ dependencies
+การตั้งค่า pytest และการประกาศว่าอะไรเป็นแพ็กเกจ
+
+```bash
+pip install -e ".[ml,dev]"    # ติดตั้งครบสำหรับพัฒนา
+pip install .                 # เฉพาะที่ระบบต้องใช้ตอนให้บริการ (Docker ใช้แบบนี้)
+```
+
+| กลุ่ม | มีอะไร | ใช้เมื่อ |
+|---|---|---|
+| หลัก | fastapi, sqlalchemy, alembic, scikit-learn, pythainlp | รันเซิร์ฟเวอร์ |
+| `[ml]` | pandas, openpyxl | เตรียมข้อมูลและเทรนโมเดล |
+| `[dev]` | pytest, httpx | รันเทสต์ |
+
+การติดตั้งแบบ editable ทำให้ `import app.*` และ `import common.*` ใช้ได้เหมือนกัน
+ไม่ว่าจะรันจากโฟลเดอร์ไหน จึงไม่ต้องเติม `sys.path` ด้วยมือในแต่ละไฟล์อีกต่อไป
+
+ไฟล์ `requirements*.txt` ทั้งสามยังอยู่เพื่อความเข้ากันได้ แต่ข้างในเป็นเพียงตัวชี้มาที่ `pyproject.toml`
+ไม่ได้ระบุเวอร์ชันซ้ำ จึงไม่มีทางที่สองที่จะไม่ตรงกัน
 
 ## ช่องทางการใช้งาน 2 แบบ
 
@@ -119,7 +145,7 @@ phishing-detection-system/
 0. **สร้าง virtual environment** (Python 3.11) — ทำครั้งเดียว
    ```bash
    py -3.11 -m venv .venv                 # Windows: .venv\Scripts\python.exe คือ python ที่ใช้รันทุกคำสั่งด้านล่าง
-   .venv\Scripts\python.exe -m pip install -r backend/requirements.txt -r ml/requirements.txt -r requirements-dev.txt
+   .venv\Scripts\python.exe -m pip install -e ".[ml,dev]"
    ```
 
 1. **เตรียมข้อมูลและเทรนโมเดล**

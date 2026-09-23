@@ -12,18 +12,13 @@ Output: ml/data/processed/{en,th}/train.csv, test.csv
 """
 import argparse
 import re
-import sys
 from collections import Counter
 from pathlib import Path
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from common.text_cleaning import SUPPORTED_LANGUAGES, clean_text, detect_language  # noqa: E402
+from common.text_cleaning import SUPPORTED_LANGUAGES, clean_text, detect_language
 
 DATA_DIR = Path(__file__).parent / "data"
 RAW_DIR = DATA_DIR / "raw"

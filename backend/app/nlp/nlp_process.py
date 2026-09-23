@@ -4,16 +4,10 @@ Class NLPProcess (แผนภาพคลาส รูปที่ 3.2)
 ขั้นตอนการประมวลผลภาษาธรรมชาติ: tokenize() -> removeStopWords() -> vectorize()
 ใช้ฟังก์ชันจาก common/text_cleaning.py ชุดเดียวกับตอนเทรนโมเดล
 """
-import sys
 from collections import Counter
-from pathlib import Path
 
 # backend/app/nlp/nlp_process.py -> parents[3] = repo root (ตอน dev) ; ใน Docker common/ อยู่ที่ /app
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from common import text_cleaning  # noqa: E402
+from common import text_cleaning
 
 
 class NLPProcess:

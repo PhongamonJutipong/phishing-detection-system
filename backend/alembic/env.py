@@ -4,15 +4,10 @@
 ไม่ได้อ่าน sqlalchemy.url จาก alembic.ini แต่ดึงจาก app.config.settings แทน
 เพื่อไม่ให้ต้องเขียน DATABASE_URL (ซึ่งมีรหัสผ่าน) ลงไฟล์ที่ขึ้น git
 """
-import sys
 from logging.config import fileConfig
-from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
-
-# ให้ import app.* ได้ไม่ว่าจะเรียก alembic จากที่ไหน
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import settings  # noqa: E402
 from app.db import models  # noqa: E402,F401  (ลงทะเบียนตารางทั้งหมดกับ Base.metadata)

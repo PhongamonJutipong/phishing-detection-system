@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phishmail"
+version = "1.0.0"
+description = "ระบบตรวจจับอีเมลฟิชชิงโดยใช้การประมวลผลภาษาธรรมชาติ รองรับภาษาไทยและอังกฤษ"
+readme = "README.md"
+requires-python = "==3.11.*"
+
+# ที่ระบบต้องใช้ตอนให้บริการจริง (สิ่งที่ Docker image ต้องมี)
+dependencies = [
+  "fastapi==0.111.0",
+  "uvicorn[standard]==0.30.1",
+  "sqlalchemy==2.0.30",
+  "psycopg2-binary==2.9.9",
+  "alembic==1.13.2",
+  "pydantic-settings==2.3.1",
+  "cryptography==42.0.8",
+  "python-dotenv==1.0.1",
+  # ใช้ร่วมกับ ml/ — เวอร์ชันต้องตรงกัน ไม่งั้นโหลดไฟล์โมเดลที่เทรนไว้ไม่ได้
+  "scikit-learn==1.5.0",
+  "joblib==1.4.2",
+  "numpy<2.1",
+  "pythainlp==5.0.4",
+]
+
+[project.optional-dependencies]
+# เฉพาะตอนเตรียมข้อมูลและเทรนโมเดล ไม่ต้องมีใน Docker image
+ml = [
+  "pandas==2.2.2",
+  "openpyxl==3.1.4",
+]
+# เฉพาะตอนรันเทสต์
+dev = [
+  "pytest==8.2.2",
+  "httpx==0.27.0",
+]
+
+[project.urls]
+Repository = "https://github.com/PhongamonJutipong/phishing-detection-system"
+
+# ประกาศแพ็กเกจให้ชัดเจน แล้วติดตั้งด้วย `pip install -e .`
+#
+# ทำแบบนี้แทนการเติม sys.path ด้วยมือในแต่ละไฟล์ ซึ่งเดิมมีอยู่ 5 จุด
+# ข้อดีคือ import ได้เหมือนกันไม่ว่าจะรันจากโฟลเดอร์ไหน ทั้งตอนรันเซิร์ฟเวอร์
+# ตอนรันสคริปต์เทรนโมเดล และตอนรันเทสต์ จึงไม่ต้องจำว่าคำสั่งไหนต้อง cd ไปที่ใดก่อน
+# ระบุรายชื่อแพ็กเกจตรง ๆ ไม่ใช้ packages.find เพราะ find หาแพ็กเกจที่อยู่คนละโฟลเดอร์
+# กับชื่อแพ็กเกจ (app อยู่ที่ backend/app) ไม่เจอ
+[tool.setuptools]
+package-dir = { "common" = "common", "app" = "backend/app" }
+packages = [
+  "common",
+  "app",
+  "app.api",
+  "app.core",
+  "app.db",
+  "app.ml",
+  "app.nlp",
+  "app.services",
+]
+
+# คลังคำและคำหยุดภาษาไทยต้องติดไปกับแพ็กเกจด้วย ไม่ใช่แค่ไฟล์ .py
+[tool.setuptools.package-data]
+common = ["resources/*.txt"]
+# หน้าเว็บที่ Angular build ไว้ ต้องติดไปกับแพ็กเกจเพื่อให้ Docker image มีหน้าเว็บด้วย
+app = ["web/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["common/tests", "backend/tests", "ml/tests"]
+python_files = ["test_*.py"]

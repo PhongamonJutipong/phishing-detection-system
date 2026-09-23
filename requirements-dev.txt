@@ -1,5 +1,5 @@
-# dependencies สำหรับรัน test เท่านั้น (ไม่ต้องติดตั้งตอน deploy จริง)
-# ติดตั้งคู่กับ backend/requirements.txt และ ml/requirements.txt:
-#   pip install -r backend/requirements.txt -r ml/requirements.txt -r requirements-dev.txt
-pytest==8.2.2
-httpx==0.27.0
+# dependencies สำหรับรันเทสต์
+# แหล่งข้อมูลจริงคือ optional-dependencies ชื่อ "dev" ใน pyproject.toml
+#
+# ติดตั้งครบทุกอย่างในคำสั่งเดียว:  pip install -e ".[ml,dev]"
+.[dev]

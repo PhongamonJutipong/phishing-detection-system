@@ -75,7 +75,9 @@ $vpy = Join-Path $repo ".venv\Scripts\python.exe"
 # ------------------------------------------------------------ 3. dependencies
 Step 3 "ติดตั้ง dependencies (ใช้เวลาสักครู่)"
 & $vpy -m pip install --upgrade pip --quiet
-& $vpy -m pip install -r backend\requirements.txt -r ml\requirements.txt -r requirements-dev.txt --quiet
+# ติดตั้งแบบ editable จาก pyproject.toml ซึ่งเป็นแหล่งข้อมูล dependencies เพียงแหล่งเดียว
+#   .[ml]  = pandas/openpyxl สำหรับเตรียมข้อมูล   .[dev] = pytest/httpx สำหรับเทสต์
+& $vpy -m pip install -e ".[ml,dev]" --quiet
 if ($LASTEXITCODE -ne 0) { throw "ติดตั้ง dependencies ไม่สำเร็จ" }
 Ok "ติดตั้งครบแล้ว"
 
