@@ -23,20 +23,44 @@ from sklearn.pipeline import Pipeline
 PROCESSED_DIR = Path(__file__).parent / "data" / "processed"
 MODEL_OUT_DIR = Path(__file__).parent.parent / "backend" / "ml_model"
 
-VECTORIZER_MAX_FEATURES = 20000
-VECTORIZER_NGRAM_RANGE = (1, 2)
-NB_ALPHA = 0.1
+# ค่าด้านล่างมาจากการทดลองบนชุดข้อมูลจริงภาษาอังกฤษ 39,320 แถว
+# (ดูตารางเปรียบเทียบท้ายไฟล์ README ของ ml/ และ ml/results/)
+#
+# VECTORIZER_MAX_FEATURES: เดิมตั้งไว้ 20000 ตอนที่ชุดข้อมูลมีแค่ 95 แถว ซึ่งไม่เคยถูกแตะเลย
+# แต่พอข้อมูลโตเป็นสี่หมื่นแถว เพดานนี้กลายเป็นคอขวดหลัก วัดได้ดังนี้
+#   20,000 -> accuracy 0.9027 | 50,000 -> 0.9287 | 100,000 -> 0.9453 | ไม่จำกัด -> 0.9651
+# None = ไม่จำกัด แล้วใช้ min_df คุมขนาดคลังคำแทน ซึ่งคัดกรองได้ตรงกว่า
+VECTORIZER_MAX_FEATURES = None
+VECTORIZER_NGRAM_RANGE = (1, 2)   # bigram สำคัญ ตัดเหลือ unigram accuracy ตกจาก 0.9651 เป็น 0.9343
+# min_df=2 ตัดคำที่โผล่ในเอกสารเดียว ซึ่งส่วนใหญ่เป็นคำสะกดผิดหรือเศษข้อมูล
+# ลดคลังคำจาก 2.1 ล้านเหลือ 668,000 คำ (ไฟล์โมเดล 129 MB -> 40 MB) โดย accuracy แทบไม่ต่าง
+VECTORIZER_MIN_DF = 2
+# ใช้ min_df ข้างบนต่อเมื่อมีเอกสารอย่างน้อยเท่านี้ ต่ำกว่านี้ใช้ 1 เพื่อไม่ให้คลังคำหายเกือบหมด
+MIN_DOCS_FOR_MIN_DF = 1000
+# alpha คือความ "ไม่เชื่อข้อมูล" ยิ่งข้อมูลเยอะยิ่งควรลด
+#   1.0 -> 0.9424 | 0.3 -> 0.9563 | 0.1 -> 0.9651 | 0.05 -> 0.9702
+NB_ALPHA = 0.05
 CV_FOLDS = 5             # จำนวน fold ของ cross-validation
 RANDOM_STATE = 42        # ให้ผลซ้ำได้ ตรงกับที่ preprocess.py ใช้แบ่งข้อมูล
 ACCURACY_TARGET = 0.85   # สมมติฐานข้อ 1.4.1
 
 
-def build_vectorizer() -> TfidfVectorizer:
-    # ข้อความผ่าน clean_text() มาแล้ว (ตัดคำ + คั่นด้วยช่องว่าง) จึงแยก token ด้วยช่องว่างเท่านั้น
-    # เพื่อไม่ให้ตัดคำภาษาไทยซ้ำ/ทิ้งคำยาว 1 ตัวอักษร
+def build_vectorizer(n_docs: int | None = None) -> TfidfVectorizer:
+    """
+    สร้าง TF-IDF vectorizer
+
+    ข้อความผ่าน clean_text() มาแล้ว (ตัดคำ + คั่นด้วยช่องว่าง) จึงแยก token ด้วยช่องว่างเท่านั้น
+    เพื่อไม่ให้ตัดคำภาษาไทยซ้ำหรือทิ้งคำยาว 1 ตัวอักษร
+
+    min_df ปรับตามขนาดข้อมูล: การตัดคำที่โผล่ในเอกสารเดียวช่วยลด noise ได้จริง
+    เมื่อมีข้อมูลหลักหมื่น แต่ถ้าข้อมูลมีไม่กี่ร้อยแถว คำส่วนใหญ่ย่อมโผล่ครั้งเดียว
+    การใช้ min_df=2 จะตัดคลังคำทิ้งเกือบหมดจนโมเดลไม่เหลืออะไรให้เรียนรู้
+    """
+    min_df = VECTORIZER_MIN_DF if (n_docs or 0) >= MIN_DOCS_FOR_MIN_DF else 1
     return TfidfVectorizer(
         max_features=VECTORIZER_MAX_FEATURES,
         ngram_range=VECTORIZER_NGRAM_RANGE,
+        min_df=min_df,
         token_pattern=r"(?u)[^\s]+",
         lowercase=False,
         sublinear_tf=True,
@@ -55,7 +79,7 @@ def cross_validate_metrics(texts, labels) -> dict:
     if folds < 2:
         return {}
 
-    pipeline = Pipeline([("tfidf", build_vectorizer()), ("nb", MultinomialNB(alpha=NB_ALPHA))])
+    pipeline = Pipeline([("tfidf", build_vectorizer(len(texts))), ("nb", MultinomialNB(alpha=NB_ALPHA))])
     scores = cross_validate(
         pipeline,
         texts,
@@ -83,7 +107,7 @@ def train_language(lang: str) -> dict | None:
     X_train_text, y_train = train_df["clean_text"].fillna(""), train_df["label"]
     X_test_text, y_test = test_df["clean_text"].fillna(""), test_df["label"]
 
-    vectorizer = build_vectorizer()
+    vectorizer = build_vectorizer(len(X_train_text))
     X_train = vectorizer.fit_transform(X_train_text)
     X_test = vectorizer.transform(X_test_text)
 

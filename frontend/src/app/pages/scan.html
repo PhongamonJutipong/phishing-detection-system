@@ -1,0 +1,96 @@
+<app-site-nav />
+
+<main class="scan-page">
+  <div class="container">
+
+    <div class="scan-head">
+      <div>
+        <span class="eyebrow">{{ t().scanEyebrow }}</span>
+        <h1>{{ t().scanTitle }}</h1>
+        <p class="lead">{{ t().scanLead }}</p>
+      </div>
+      <div class="scan-head-right">
+        <span class="status" [class]="'status ' + status()">
+          <span class="dot"></span>{{ statusLabel() }}
+        </span>
+      </div>
+    </div>
+
+    <form (submit)="$event.preventDefault(); submit()" novalidate>
+      <label for="email-text" class="sr-only">{{ t().inputLabel }}</label>
+      <textarea
+        id="email-text"
+        rows="12"
+        spellcheck="false"
+        [placeholder]="t().placeholder"
+        [value]="text()"
+        (input)="text.set($any($event.target).value)"
+        (keydown)="onKeydown($event)"
+      ></textarea>
+
+      <div class="form-row">
+        <div class="form-hint">
+          <span>{{ charCount() ? (charCount() | number) + ' / 100,000' : t().shortcut }}</span>
+          <button type="button" class="link-btn" (click)="insertSample()">{{ t().sample }}</button>
+          <button type="button" class="link-btn" (click)="clear()">{{ t().clear }}</button>
+        </div>
+        <button type="submit" class="primary" [disabled]="loading()">
+          {{ loading() ? t().analyzing : t().analyze }}
+        </button>
+      </div>
+      <p class="form-error" role="alert">{{ formError() }}</p>
+    </form>
+
+    @if (result(); as data) {
+      <section class="result" [class]="'result level-' + data.risk_level" aria-live="polite">
+        <div class="score-card">
+          <div class="score-ring" [style.--score]="data.risk_percentage">
+            <span>{{ data.risk_percentage.toFixed(1) }}%</span>
+          </div>
+          <div class="score-info">
+            <h2>{{ levelLabel() }}</h2>
+            <p>{{ recommendation() }}</p>
+            <dl class="facts">
+              <dt>{{ t().factClassification }}</dt>
+              <dd>{{ data.classification === 'phishing' ? t().classPhishing : t().classLegitimate }}</dd>
+              <dt>{{ t().factLanguage }}</dt>
+              <dd>{{ data.language === 'th' ? t().langTh : t().langEn }}</dd>
+              <dt>{{ t().factTime }}</dt>
+              <dd>{{ data.processing_time_ms.toFixed(0) }} ms</dd>
+            </dl>
+          </div>
+        </div>
+
+        <section class="panel">
+          <h3>{{ t().detailsTitle }}</h3>
+          <ul>
+            @for (indicator of data.indicators; track indicator.category) {
+              <li>
+                {{ indicatorLabel(indicator.category) }}
+                @if (indicator.phrases.length) {
+                  <span class="phrases"> ({{ indicator.phrases.slice(0, 5).join(', ') }})</span>
+                }
+              </li>
+            }
+            @if (data.suspicious_keywords.length) {
+              <li>{{ data.suspicious_keywords.slice(0, 8).join(', ') }}</li>
+            }
+            @if (!data.indicators.length && !data.suspicious_keywords.length) {
+              <li>{{ t().detailNoIndicator }}</li>
+            }
+          </ul>
+        </section>
+
+        <section class="panel">
+          <h3>{{ t().highlightTitle }}</h3>
+          <div class="email-preview">@for (part of highlightedParts(); track $index) {@if (part.risky) {<mark class="hl">{{ part.text }}</mark>} @else {{{ part.text }}}}</div>
+        </section>
+
+        <p class="caution">{{ t().caution }}</p>
+      </section>
+    }
+
+  </div>
+</main>
+
+<app-site-footer />

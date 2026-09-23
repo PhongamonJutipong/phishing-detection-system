@@ -1,0 +1,123 @@
+<aside class="sidebar">
+  <a class="wordmark" routerLink="/">
+    <app-shield-icon />
+    {{ t().brand }}
+  </a>
+
+  <nav class="side-nav">
+    <a class="active" routerLink="/dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" />
+        <rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" />
+      </svg>
+      {{ t().dashTitle }}
+    </a>
+    <a routerLink="/scan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" />
+      </svg>
+      {{ t().navScan }}
+    </a>
+    <a routerLink="/dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 9h18" /><path d="M9 14h6" />
+      </svg>
+      {{ t().navHistory }}
+    </a>
+    <a routerLink="/dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 6h10" /><path d="M4 12h16" /><path d="M4 18h7" /><rect x="14.5" y="3.5" width="6" height="5" rx="1.2" />
+      </svg>
+      {{ t().navTerms }}
+    </a>
+    <a routerLink="/dashboard">
+      <app-shield-icon />
+      {{ t().navModel }}
+    </a>
+  </nav>
+
+  <div class="side-foot">
+    <a routerLink="/">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 12H5" /><path d="M11 6l-6 6 6 6" />
+      </svg>
+      {{ t().backToSite }}
+    </a>
+  </div>
+</aside>
+
+<div class="app-main">
+  <header class="app-header">
+    <h1>{{ t().dashTitle }}</h1>
+    <span class="draft-tag">{{ t().dashSample }}</span>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" />
+      </svg>
+      <label for="dash-search" class="sr-only">{{ t().dashSearch }}</label>
+      <input id="dash-search" type="search" [placeholder]="t().dashSearch" />
+    </div>
+    <button type="button" class="link-btn" (click)="i18n.toggle()">{{ t().langToggle }}</button>
+    <div class="avatar">PJ</div>
+  </header>
+
+  <main class="app-body">
+    <section class="stats">
+      <div class="stat is-accent">
+        <div class="label">{{ t().dashScanned }}</div>
+        <div class="value">128</div>
+      </div>
+      <div class="stat is-danger">
+        <div class="label">{{ t().dashPhishing }}</div>
+        <div class="value">14</div>
+      </div>
+      <div class="stat is-warn">
+        <div class="label">{{ t().dashSuspicious }}</div>
+        <div class="value">6</div>
+      </div>
+      <div class="stat is-safe">
+        <div class="label">{{ t().dashAvgTime }}</div>
+        <div class="value">7 <span class="unit">ms</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>{{ t().dashRecent }}</h2>
+        <span class="mono">{{ t().dashLast24 }}</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>{{ t().colSender }}</th>
+              <th>{{ t().colSubject }}</th>
+              <th>{{ t().colRisk }}</th>
+              <th>{{ t().colLang }}</th>
+              <th>{{ t().colProcess }}</th>
+              <th>{{ t().colTime }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows; track row.sender) {
+              <tr>
+                <td class="sender">{{ row.sender }}</td>
+                <td class="subject">{{ subjectOf(row) }}</td>
+                <td><span class="badge" [class]="'badge badge-' + row.level">{{ row.risk }}%</span></td>
+                <td class="lang">{{ langLabel(row) }}</td>
+                <td class="received">{{ row.ms }} ms</td>
+                <td class="received">{{ row.time }}</td>
+                <td class="action">
+                  <button type="button" class="btn btn-ghost btn-sm">{{ t().colDetail }}</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="criteria-note">{{ t().dashNote }}</p>
+  </main>
+</div>

@@ -14,6 +14,11 @@
 venv/
 env/
 
+# ===== Node: ตัวติดตั้งของ Angular ใหญ่หลายร้อย MB และ image สร้างใหม่เองอยู่แล้ว =====
+**/node_modules/
+frontend/dist/
+frontend/.angular/
+
 # ===== git และไฟล์ที่สร้างใหม่ได้ =====
 .git/
 .github/

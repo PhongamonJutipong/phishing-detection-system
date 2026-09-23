@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.routes import router
 from app.config import settings
@@ -107,10 +108,34 @@ def api_root():
     return {"message": "Phishing Detection API is running", "docs": "/docs", "web": "/"}
 
 
-# หน้าเว็บสำหรับตรวจสอบอีเมล (วางข้อความ -> กดตรวจสอบ) เสิร์ฟจาก origin เดียวกับ API
+class SpaStaticFiles(StaticFiles):
+    """
+    เสิร์ฟไฟล์ที่มีอยู่จริง ถ้าไม่มีให้คืน index.html แทน
+
+    หน้าเว็บเป็น Angular ที่ใช้ routing แบบ path เช่น /scan และ /dashboard
+    ซึ่งไม่มีไฟล์จริงอยู่บนดิสก์ ถ้าผู้ใช้กดรีเฟรชหรือเปิดลิงก์ตรงเข้ามาที่ /scan
+    เซิร์ฟเวอร์ต้องคืน index.html แล้วให้ Angular อ่าน URL เองแล้วแสดงหน้าที่ถูกต้อง
+    ไม่เช่นนั้นจะได้ 404 ทั้งที่หน้านั้นมีอยู่ในแอป
+    """
+
+    async def get_response(self, path: str, scope):
+        # StaticFiles "โยน" HTTPException(404) ออกมา ไม่ได้คืน response ที่มี status 404
+        # จึงต้องดักที่ exception ไม่ใช่ตรวจ status_code ของค่าที่คืนมา
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise
+
+
+# หน้าเว็บ Angular เสิร์ฟจาก origin เดียวกับ API จึงไม่ต้องตั้งค่าที่อยู่เซิร์ฟเวอร์และไม่ติด CORS
 # ต้อง mount ท้ายสุด เพราะ path "/" จะรับทุก path ที่ route อื่นไม่ได้จับไว้ก่อนแล้ว
 WEB_DIR = Path(__file__).parent / "web"
-if WEB_DIR.is_dir():
-    app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+if (WEB_DIR / "index.html").is_file():
+    app.mount("/", SpaStaticFiles(directory=WEB_DIR, html=True), name="web")
 else:
-    logger.log_warning(f"ไม่พบโฟลเดอร์หน้าเว็บ {WEB_DIR} — ให้บริการเฉพาะ API")
+    logger.log_warning(
+        f"ไม่พบหน้าเว็บที่ {WEB_DIR} — ให้บริการเฉพาะ API "
+        "(สั่ง 'npm run build' ในโฟลเดอร์ frontend เพื่อสร้างหน้าเว็บ)"
+    )

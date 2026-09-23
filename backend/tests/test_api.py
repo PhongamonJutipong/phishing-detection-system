@@ -1,6 +1,8 @@
 """
 ทดสอบ API ตาม UC-04 / UC-05 / UC-06 ด้วยโมเดลขนาดเล็กของจริง (ดู conftest.py)
 """
+import pytest
+
 from app.config import settings
 from app.db.database import SessionLocal
 from app.db.database_manager import DatabaseManager
@@ -26,16 +28,22 @@ def test_api_root_returns_ok(client):
 
 def test_web_page_is_served(client):
     """หน้าเว็บสำหรับกรอกอีเมลถูกเสิร์ฟจาก origin เดียวกับ API"""
+    from app.main import WEB_DIR
+
+    if not (WEB_DIR / "index.html").is_file():
+        pytest.skip("ยังไม่ได้ build หน้าเว็บ — สั่ง 'npm run build' ในโฟลเดอร์ frontend")
+
     landing = client.get("/")
     assert landing.status_code == 200
     assert "text/html" in landing.headers["content-type"]
+    assert "<app-root>" in landing.text          # เป็นหน้า Angular จริง
 
-    resp = client.get("/scan.html")
-    assert resp.status_code == 200
-    assert "text/html" in resp.headers["content-type"]
-    assert "analyze-form" in resp.text
-    assert client.get("/app.js").status_code == 200
-    assert client.get("/style.css").status_code == 200
+    # Angular ใช้ routing แบบ path เส้นทางเหล่านี้ไม่มีไฟล์จริงบนดิสก์
+    # เซิร์ฟเวอร์ต้องคืน index.html ให้ ไม่ใช่ 404 มิฉะนั้นการรีเฟรชหน้าจะพัง
+    for route in ["/scan", "/dashboard", "/login"]:
+        resp = client.get(route)
+        assert resp.status_code == 200, f"{route} ต้องไม่เป็น 404"
+        assert "<app-root>" in resp.text
 
 
 def test_health_reports_models_and_database(client):
@@ -172,10 +180,12 @@ def test_unrecognised_text_is_not_reported_as_dangerous(client):
     เดิม predict_proba คืนค่า prior ของคลาส (ราว 55%) ซึ่งสูงกว่าเกณฑ์อันตราย
     ทำให้ภาษาอื่น ตัวเลขล้วน และคำที่ไม่เคยเห็น ถูกเตือนว่าอันตรายทั้งหมด
     """
+    # โครงงานรองรับเฉพาะภาษาไทยและอังกฤษ จึงไม่ใช้ภาษาอื่นเป็นตัวอย่างทดสอบ
+    # ใช้ตัวเลขล้วนกับคำที่ไม่มีความหมายแทน ซึ่งให้ผลเดียวกันคือเวกเตอร์ว่าง
     for text in [
-        "こんにちは、お元気ですか。今日はいい天気ですね。",   # ภาษาญี่ปุ่น ไม่มีในคลังคำ
-        "12345 67890 11111 22222 33333",                     # ตัวเลขล้วน
-        "zzzz qqqq xxxx wwww vvvv",                          # คำที่ไม่มีความหมาย
+        "12345 67890 11111 22222 33333",        # ตัวเลขล้วน ไม่มีคำให้ตัด
+        "zzzz qqqq xxxx wwww vvvv",             # อักษรละตินที่ไม่ใช่คำ
+        "ฃฃฃ ฅฅฅ ฆฆฆ ฏฏฏ ฑฑฑ",                  # อักษรไทยที่ไม่ประกอบเป็นคำ
     ]:
         body = client.post("/api/v1/analyze", json={"body_content": text}).json()
         assert body["risk_level"] != "dangerous", f"{text!r} ถูกตัดสินว่าอันตราย"

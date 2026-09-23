@@ -1,9 +1,16 @@
-﻿# ตั้งค่าโปรเจคครั้งแรกบน Windows
+﻿# ตั้งค่าและเริ่มระบบด้วยคำสั่งเดียวบน Windows
 #
-#   powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+#   scripts\setup.bat              <- วิธีที่ง่ายที่สุด
+#   powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 [-SkipRun]
 #
-# ทำให้ครบตั้งแต่สร้าง virtual environment จนถึงรันเทสต์ผ่าน
-# สคริปต์นี้ไม่เขียนทับไฟล์ backend\.env ที่มีอยู่แล้ว และไม่แตะฐานข้อมูล
+# ทำให้ครบตั้งแต่สร้าง virtual environment ไปจนถึงระบบรันอยู่และเปิดหน้าเว็บให้
+# ใส่ -SkipRun ถ้าต้องการติดตั้งอย่างเดียวโดยไม่เริ่มระบบ
+#
+# รันซ้ำได้ปลอดภัย ไม่เขียนทับ .venv, backend\.env หรือโมเดลที่มีอยู่แล้ว
+# และไม่แตะข้อมูลในฐานข้อมูล
+param(
+    [switch]$SkipRun
+)
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
@@ -12,6 +19,24 @@ Set-Location $repo
 function Step($n, $text) { Write-Host "`n[$n] $text" -ForegroundColor Cyan }
 function Ok($text)       { Write-Host "    OK  $text" -ForegroundColor Green }
 function Warn($text)     { Write-Host "    !   $text" -ForegroundColor Yellow }
+
+# ตรวจว่า Docker daemon พร้อมหรือยัง
+#
+# ต้องปิด ErrorActionPreference ชั่วคราว เพราะ PowerShell ถือว่าข้อความที่โปรแกรมภายนอก
+# เขียนลง stderr เป็น error เมื่อมีการ redirect ทำให้สคริปต์หยุดทั้งที่เราแค่ต้องการรู้ว่า
+# Docker เปิดอยู่ไหม ซึ่งเป็นกรณีปกติที่ต้องจัดการต่อ ไม่ใช่ความผิดพลาดที่ต้องหยุด
+function Test-DockerReady {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        docker info 2>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+}
 
 Write-Host "ตั้งค่าโปรเจค PhishMail" -ForegroundColor White
 Write-Host "โฟลเดอร์: $repo"
@@ -93,35 +118,122 @@ if ((Test-Path "backend\ml_model\en\naive_bayes_model.pkl") -and
     Warn "โมเดลนี้เทรนจากชุดข้อมูลจำลอง ใช้ทดสอบระบบเท่านั้น ห้ามนำค่าความแม่นยำไปรายงาน"
 }
 
-# ------------------------------------------------------------------ 6. เทสต์
-Step 6 "รันเทสต์เพื่อยืนยันว่าทุกอย่างพร้อม"
+# ------------------------------------------------------------ 6. หน้าเว็บ
+Step 6 "ติดตั้งและ build หน้าเว็บ Angular"
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Warn "ยังไม่ได้ติดตั้ง Node.js - https://nodejs.org/ (ต้องการเวอร์ชัน 20 ขึ้นไป)"
+    Warn "ติดตั้งแล้วรันสคริปต์นี้ซ้ำ ระบบจะให้บริการเฉพาะ API จนกว่าจะ build หน้าเว็บ"
+} else {
+    Push-Location frontend
+    try {
+        if (Test-Path "node_modules/.bin/ng.cmd") {
+            Ok "ติดตั้ง dependencies ไว้แล้ว ข้ามขั้นตอนนี้"
+        } else {
+            # npm ci ใช้ package-lock.json ตรง ๆ จึงได้เวอร์ชันเดิมทุกครั้ง
+            npm ci
+            if ($LASTEXITCODE -ne 0) { throw "ติดตั้ง dependencies ของหน้าเว็บไม่สำเร็จ" }
+        }
+        npm run build
+        if ($LASTEXITCODE -ne 0) { throw "build หน้าเว็บไม่สำเร็จ" }
+    } finally { Pop-Location }
+    Ok "build หน้าเว็บเสร็จ (ผลลัพธ์อยู่ที่ backend/app/web)"
+}
+
+# ------------------------------------------------------------------ 7. เทสต์
+Step 7 "รันเทสต์เพื่อยืนยันว่าทุกอย่างพร้อม"
 & $vpy -m pytest -q
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`nเทสต์ไม่ผ่าน - ดูข้อความข้างบนประกอบ" -ForegroundColor Red
     exit 1
 }
 
-# ------------------------------------------------------------------- 7. Docker
-Step 7 "ตรวจ Docker"
-if (Get-Command docker -ErrorAction SilentlyContinue) {
-    docker info *>$null
-    if ($LASTEXITCODE -eq 0) { Ok "Docker พร้อมใช้งาน" }
-    else { Warn "ติดตั้ง Docker แล้วแต่ยังไม่ได้เปิด - เปิด Docker Desktop ก่อนรันระบบ" }
-} else {
+# ------------------------------------------------------------------- 8. Docker
+Step 8 "ตรวจ Docker"
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     Warn "ยังไม่ได้ติดตั้ง Docker Desktop - https://www.docker.com/products/docker-desktop/"
+    Warn "ติดตั้งแล้วรันสคริปต์นี้ซ้ำอีกครั้ง ส่วนที่ทำไปแล้วจะถูกข้าม"
+    exit 0
 }
 
-Write-Host "`nพร้อมใช้งานแล้ว" -ForegroundColor Green
+if (-not (Test-DockerReady)) {
+    Warn "Docker Desktop ยังไม่ได้เปิด - กำลังพยายามเปิดให้..."
+    # หาตัวโปรแกรมจากตำแหน่งของ docker.exe แทนการเดา path ติดตั้ง
+    # เพราะ Docker Desktop รุ่นใหม่ติดตั้งลง AppData ของผู้ใช้ ไม่ใช่ Program Files เสมอไป
+    # โครงสร้างคือ <ราก>/resources/bin/docker.exe จึงถอยขึ้นสามชั้นเพื่อหา "Docker Desktop.exe"
+    $dd = $null
+    $dockerExe = (Get-Command docker -ErrorAction SilentlyContinue).Source
+    if ($dockerExe) {
+        $candidate = Join-Path (Split-Path (Split-Path (Split-Path $dockerExe))) "Docker Desktop.exe"
+        if (Test-Path $candidate) { $dd = $candidate }
+    }
+    if (-not $dd) {
+        foreach ($guess in @("$env:ProgramFiles\Docker\Docker\Docker Desktop.exe",
+                             "$env:LOCALAPPDATA\Programs\DockerDesktop\Docker Desktop.exe")) {
+            if (Test-Path $guess) { $dd = $guess; break }
+        }
+    }
+    if ($dd) { Start-Process $dd } else { Warn "หาตัวโปรแกรมไม่เจอ กรุณาเปิด Docker Desktop ด้วยตนเอง" }
+
+    Write-Host "    รอจนกว่า Docker จะพร้อม (สูงสุด 3 นาที)..." -NoNewline
+    $deadline = (Get-Date).AddMinutes(3)
+    $dockerReady = $false
+    while ((Get-Date) -lt $deadline) {
+        if (Test-DockerReady) { $dockerReady = $true; break }
+        Write-Host "." -NoNewline
+        Start-Sleep -Seconds 5
+    }
+    Write-Host ""
+    if (-not $dockerReady) {
+        Write-Host "`nDocker ยังไม่พร้อม - เปิด Docker Desktop เองแล้วสั่ง 'docker compose up -d --build'" -ForegroundColor Red
+        exit 1
+    }
+}
+Ok "Docker พร้อมใช้งาน"
+
+if ($SkipRun) {
+    Write-Host "`nติดตั้งเสร็จแล้ว (ข้ามการรันระบบตามที่สั่ง)" -ForegroundColor Green
+    Write-Host "สั่ง 'docker compose up -d --build' เมื่อพร้อมใช้งาน"
+    exit 0
+}
+
+# --------------------------------------------------------------- 9. รันระบบ
+Step 9 "สร้าง image และเริ่มระบบ (ครั้งแรกใช้เวลาหลายนาที)"
+docker compose up -d --build
+if ($LASTEXITCODE -ne 0) { throw "เริ่มระบบไม่สำเร็จ ดูข้อความข้างบนประกอบ" }
+
+# ------------------------------------------------------------ 10. ตรวจว่าใช้ได้
+Step 10 "รอให้ระบบพร้อมรับคำขอ"
+$ready = $false
+$deadline = (Get-Date).AddMinutes(3)
+while ((Get-Date) -lt $deadline) {
+    try {
+        $r = Invoke-RestMethod "http://127.0.0.1:8000/api/v1/health" -TimeoutSec 5
+        if ($r.status -eq "ok") { $ready = $true; break }
+    } catch { }
+    Write-Host "." -NoNewline
+    Start-Sleep -Seconds 5
+}
+Write-Host ""
+
+if (-not $ready) {
+    Write-Host "`nระบบยังไม่ตอบกลับ - ดู log ด้วย 'docker compose logs backend'" -ForegroundColor Red
+    exit 1
+}
+Ok "ระบบพร้อมใช้งาน (โมเดลโหลดแล้ว ฐานข้อมูลเชื่อมต่อได้)"
+
+Write-Host "`nติดตั้งเสร็จสมบูรณ์" -ForegroundColor Green
 Write-Host @"
 
-ขั้นต่อไป เปิด Docker Desktop แล้วสั่ง
-
-    docker compose up -d --build
-
-จากนั้นเปิด
+เปิดใช้งานได้ที่
     http://127.0.0.1:8000/            หน้าแรก
     http://127.0.0.1:8000/scan.html   หน้าตรวจสอบอีเมล
     http://127.0.0.1:8000/docs        เอกสาร API
 
+คำสั่งที่ใช้บ่อย
+    docker compose logs -f backend    ดู log
+    docker compose stop               หยุดชั่วคราว ข้อมูลอยู่ครบ
+    docker compose down               ลบคอนเทนเนอร์ ข้อมูลยังอยู่
+
 อ่านรายละเอียดทั้งหมดได้ที่ docs\SETUP.md
 "@
+Start-Process "http://127.0.0.1:8000/scan.html"

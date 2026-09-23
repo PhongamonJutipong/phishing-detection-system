@@ -932,3 +932,23 @@ body.centered { display: grid; place-items: center; min-height: 100vh; padding: 
   .table-scroll { overflow-x: auto; }
   table { min-width: 720px; }
 }
+
+/* ==========================================================================
+   ส่วนที่เพิ่มสำหรับ Angular
+   ========================================================================== */
+
+/* เดิมหน้าเข้าสู่ระบบและหน้าภาพรวมจัด layout ด้วย class บน <body>
+   แต่ใน Angular เนื้อหาอยู่ใต้ <app-root> จึงย้ายไปใช้ class บน host ของคอมโพเนนต์แทน */
+app-root { display: block; }
+
+.centered-host {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+.app-host {
+  display: flex;
+  min-height: 100vh;
+}

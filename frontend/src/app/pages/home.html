@@ -1,0 +1,142 @@
+<app-site-nav />
+
+<header class="hero">
+  <div class="container">
+    <div>
+      <span class="eyebrow">{{ t().heroEyebrow }}</span>
+      <h1>{{ t().heroTitle }}</h1>
+      <p class="hero-sub">{{ t().heroSub }}</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" routerLink="/scan">{{ t().navScan }}</a>
+        <a class="btn btn-ghost" routerLink="/dashboard">
+          {{ t().heroCtaSee }}
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+               stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14" /><path d="M13 6l6 6-6 6" />
+          </svg>
+        </a>
+      </div>
+      <p class="hero-note">{{ t().heroNote }}</p>
+    </div>
+
+    <div class="threat-card">
+      <div class="threat-card-top">
+        <span class="mono">{{ t().heroCtaSee }}</span>
+        <span class="badge badge-high">97.4%</span>
+      </div>
+      <div class="threat-meta">
+        <div class="row">
+          <span class="k">From</span>
+          <span class="v">support&#64;it-verify-secure.com</span>
+        </div>
+      </div>
+      <div class="threat-body">
+        Your account will be <mark>suspended within 24 hours</mark>. Please
+        <mark>verify your identity now</mark> at <mark>http://it-verify-secure.com/login</mark>
+        or it will be permanently deleted.
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="strip">
+  <div class="container">
+    <span class="mono">{{ t().builtWith }}</span>
+    <div class="strip-logos">
+      @for (item of stack; track item) {
+        <span>{{ item }}</span>
+      }
+    </div>
+  </div>
+</section>
+
+<section class="section" id="how-it-works">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">{{ t().navHowItWorks }}</span>
+      <h2>{{ t().howTitle }}</h2>
+      <p>{{ t().howSub }}</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>{{ t().how1Title }}</h3>
+        <p>{{ t().how1Body }}</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>{{ t().how2Title }}</h3>
+        <p>{{ t().how2Body }}</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>{{ t().how3Title }}</h3>
+        <p>{{ t().how3Body }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">{{ t().navFeatures }}</span>
+      <h2>{{ t().featTitle }}</h2>
+      <p>{{ t().featSub }}</p>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7h7" /><path d="M7.5 7v10" /><path d="M13 17l3.5-10 3.5 10" /><path d="M14.2 14h4.6" />
+          </svg>
+        </div>
+        <h3>{{ t().feat1Title }}</h3>
+        <p>{{ t().feat1Body }}</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6h10" /><path d="M4 12h16" /><path d="M4 18h7" />
+            <rect x="14.5" y="3.5" width="6" height="5" rx="1.2" />
+          </svg>
+        </div>
+        <h3>{{ t().feat2Title }}</h3>
+        <p>{{ t().feat2Body }}</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3.5 7.5l8.5 6 8.5-6" />
+          </svg>
+        </div>
+        <h3>{{ t().feat3Title }}</h3>
+        <p>{{ t().feat3Body }}</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="10.5" width="14" height="9.5" rx="2" />
+            <path d="M8.5 10.5V8a3.5 3.5 0 017 0v2.5" /><path d="M12 14v2.5" />
+          </svg>
+        </div>
+        <h3>{{ t().feat4Title }}</h3>
+        <p>{{ t().feat4Body }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band">
+  <div class="container">
+    <h2>{{ t().ctaTitle }}</h2>
+    <p>{{ t().ctaSub }}</p>
+    <a class="btn btn-primary" routerLink="/scan">{{ t().navScan }}</a>
+  </div>
+</section>
+
+<app-site-footer />

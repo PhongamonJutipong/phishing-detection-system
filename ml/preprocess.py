@@ -11,6 +11,7 @@ Output: ml/data/processed/{en,th}/train.csv, test.csv
 รัน: python preprocess.py [--include-mock]
 """
 import argparse
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -51,6 +52,33 @@ _LABEL_MAP = {
     "0": 0, "ham": 0, "legitimate": 0, "legit": 0, "normal": 0, "safe": 0,
     "false": 0, "no": 0, "benign": 0,
 }
+
+
+# โครงงานรองรับเฉพาะภาษาไทยและอังกฤษ (ดู SUPPORTED_LANGUAGES ใน common/text_cleaning.py)
+# ชุดข้อมูลสาธารณะมักมีอีเมลภาษาอื่นปนมาด้วย ซึ่งถ้าปล่อยไว้จะถูก detect_language
+# จัดเข้าโมเดลภาษาอังกฤษ ทำให้คลังคำมีคำที่ระบบไม่ได้ออกแบบมารองรับ
+_OTHER_SCRIPT_RANGES = (
+    (0x4E00, 0x9FFF),   # จีน
+    (0x3040, 0x30FF),   # ญี่ปุ่น
+    (0xAC00, 0xD7AF),   # เกาหลี
+    (0x0400, 0x04FF),   # ซีริลลิก
+    (0x0600, 0x06FF),   # อาหรับ
+    (0x0590, 0x05FF),   # ฮีบรู
+    (0x0900, 0x097F),   # เทวนาครี
+)
+# เขียนเป็นรหัสตัวอักษร ไม่ใช่ตัวอักษรจริง เพื่อให้ไฟล์นี้ไม่มีภาษาอื่นปนอยู่เสียเอง
+_OTHER_SCRIPTS = re.compile(
+    "[" + "".join(f"{chr(lo)}-{chr(hi)}" for lo, hi in _OTHER_SCRIPT_RANGES) + "]"
+)
+
+
+def _drop_other_languages(df: pd.DataFrame) -> pd.DataFrame:
+    """ตัดแถวที่มีอักษรของภาษาอื่นนอกเหนือจากไทยและอังกฤษออก"""
+    keep = ~df["text"].str.contains(_OTHER_SCRIPTS, regex=True, na=False)
+    removed = int((~keep).sum())
+    if removed:
+        print(f"ตัดอีเมลภาษาอื่น (นอกจากไทย/อังกฤษ) ออก {removed:,} ฉบับ")
+    return df[keep]
 
 
 def _normalize_labels(series: pd.Series) -> pd.Series:
@@ -128,6 +156,8 @@ def load_raw_datasets(include_mock: bool = False, extra_dirs: list[Path] | None 
     before = len(df)
     df = df.drop_duplicates(subset=["text"])
     duplicates = before - len(df)
+
+    df = _drop_other_languages(df)
 
     if "language" not in df.columns:
         df["language"] = None

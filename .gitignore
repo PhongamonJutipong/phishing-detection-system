@@ -36,8 +36,12 @@ backend/ml_model/**/model_metadata.json
 .pytest_cache/
 *.egg-info/
 
-# ===== Node (เผื่ออนาคตมี build tooling ให้ extension) =====
+# ===== Node / Angular =====
 node_modules/
+frontend/dist/
+.angular/
+# หน้าเว็บที่ Angular build ออกมา สร้างใหม่ได้ด้วย 'npm run build' ในโฟลเดอร์ frontend
+backend/app/web/
 
 # ===== Chrome extension: ไฟล์ที่ห้ามขึ้น git เด็ดขาดถ้ามีการ pack/sign =====
 *.pem

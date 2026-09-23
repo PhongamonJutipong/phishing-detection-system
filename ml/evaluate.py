@@ -15,7 +15,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
 
 from train import NB_ALPHA, PROCESSED_DIR, build_vectorizer
 
@@ -23,8 +23,20 @@ RESULTS_DIR = Path(__file__).parent / "results"
 
 
 def algorithms() -> dict:
+    """
+    5 อัลกอริทึมที่นำมาเปรียบเทียบตามบทที่ 3.3.3
+
+    SVM ใช้ LinearSVC ไม่ใช่ SVC(kernel="linear")
+    ทั้งสองตัวคืออัลกอริทึมเดียวกัน แต่คนละไลบรารีเบื้องหลัง
+      - SVC ใช้ libsvm ซึ่งมีความซับซ้อนประมาณ O(n^2) ถึง O(n^3)
+        บนข้อมูล 39,000 แถวจะใช้เวลาหลายชั่วโมงหรือไม่จบเลย
+      - LinearSVC ใช้ liblinear ซึ่งออกแบบมาสำหรับข้อมูลจำนวนมากและเบาบาง (sparse)
+        แบบเวกเตอร์ TF-IDF โดยเฉพาะ ใช้เวลาระดับวินาที
+    เดิมยังตั้ง probability=True ไว้ด้วยทั้งที่โค้ดเรียกแค่ predict() ไม่เคยใช้ค่าความน่าจะเป็น
+    ซึ่งทำให้ SVC ต้องทำ cross-validation ภายในเพื่อ Platt scaling เสียเวลาเพิ่มอีกหลายเท่าโดยเปล่าประโยชน์
+    """
     return {
-        "SVM": SVC(kernel="linear", probability=True, random_state=42),
+        "SVM": LinearSVC(random_state=42, dual="auto"),
         "RandomForest": RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1),
         "LogisticRegression": LogisticRegression(max_iter=1000),
         "NaiveBayes": MultinomialNB(alpha=NB_ALPHA),
