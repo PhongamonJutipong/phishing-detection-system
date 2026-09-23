@@ -28,12 +28,39 @@ DATA_DIR = Path(__file__).parent / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 MOCK_DATASET = DATA_DIR / "mock_email_dataset.xlsx"
+# ชุดข้อมูลสังเคราะห์ที่เขียนขึ้นเอง (ไม่ได้มาจากอีเมลจริง) ใช้คู่กับชุดจำลองข้างบน
+# เพื่อขยายคลังคำ ไม่ใช่เพื่อใช้เป็นค่าความแม่นยำที่รายงานได้
+SYNTHETIC_DATASET = DATA_DIR / "synthetic_email_dataset.csv"
 
 TEST_SIZE = 0.20
 RANDOM_STATE = 42
 
 _TEXT_COLUMN_CANDIDATES = ("text", "text (email content)", "body", "content")
 _LABEL_COLUMN_CANDIDATES = ("label", "is_phishing")
+
+
+# ชุดข้อมูลสาธารณะใช้คำเรียกป้ายกำกับต่างกัน จึงต้องแปลงให้เป็น 1/0 ก่อน
+#
+# ข้อควรทราบ: ชุดข้อมูลจำนวนมากติดป้ายว่า spam ซึ่งกว้างกว่า phishing
+# (รวมโฆษณาที่ไม่ได้หลอกเอาข้อมูลด้วย) การจับ spam เป็น 1 จึงทำให้โมเดลเรียนรู้
+# "อีเมลไม่พึงประสงค์" มากกว่า "อีเมลหลอกเอาข้อมูล" โดยเคร่งครัด
+# ต้องเขียนกำกับไว้ในเอกสารเมื่อรายงานผล
+_LABEL_MAP = {
+    "1": 1, "spam": 1, "phishing": 1, "phish": 1, "fraud": 1, "scam": 1,
+    "true": 1, "yes": 1, "malicious": 1,
+    "0": 0, "ham": 0, "legitimate": 0, "legit": 0, "normal": 0, "safe": 0,
+    "false": 0, "no": 0, "benign": 0,
+}
+
+
+def _normalize_labels(series: pd.Series) -> pd.Series:
+    """แปลงป้ายกำกับให้เป็น 1/0 รองรับทั้งตัวเลขและคำ เช่น spam/ham"""
+    def convert(value):
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return int(value) if int(value) in (0, 1) else None
+        return _LABEL_MAP.get(str(value).strip().lower())
+
+    return series.map(convert)
 
 
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame | None:
@@ -63,10 +90,19 @@ def _read_file(path: Path) -> list[pd.DataFrame]:
     return result
 
 
-def load_raw_datasets(include_mock: bool = False) -> pd.DataFrame:
+def load_raw_datasets(include_mock: bool = False, extra_dirs: list[Path] | None = None) -> pd.DataFrame:
     files = sorted(list(RAW_DIR.glob("*.csv")) + list(RAW_DIR.glob("*.xlsx")))
-    if include_mock and MOCK_DATASET.exists():
-        files.append(MOCK_DATASET)
+    # อ่านชุดข้อมูลจากโฟลเดอร์ภายนอกได้โดยไม่ต้องคัดลอกไฟล์ขนาดใหญ่เข้ามาในโปรเจค
+    for d in (extra_dirs or []):
+        if not d.is_dir():
+            raise FileNotFoundError(f"ไม่พบโฟลเดอร์ {d}")
+        files += sorted(list(d.glob("*.csv")) + list(d.glob("*.xlsx")))
+    if include_mock:
+        # SYNTHETIC_DATASET เขียนขึ้นเองเพื่อเพิ่มความหลากหลายของคำศัพท์ให้คลังคำกว้างขึ้น
+        # ครอบคลุมหัวข้อที่ชุดจำลองเดิมไม่มี เช่น พัสดุ ภาษี ค่าไฟ เงินกู้ การลงทุน
+        for extra in (MOCK_DATASET, SYNTHETIC_DATASET):
+            if extra.exists():
+                files.append(extra)
     if not files:
         raise FileNotFoundError(
             f"ไม่พบไฟล์ .csv/.xlsx ใน {RAW_DIR} — วาง dataset (คอลัมน์ text,label) ไว้ที่นี่ "
@@ -82,6 +118,12 @@ def load_raw_datasets(include_mock: bool = False) -> pd.DataFrame:
     df = df.dropna(subset=["text", "label"])
     missing = before - len(df)
     df["text"] = df["text"].astype(str)
+    df["label"] = _normalize_labels(df["label"])
+    before_label = len(df)
+    df = df.dropna(subset=["label"])
+    unreadable_labels = before_label - len(df)
+    if unreadable_labels:
+        print(f"[คำเตือน] ตัดทิ้ง {unreadable_labels:,} แถวที่อ่านป้ายกำกับไม่ออก")
     df["label"] = df["label"].astype(int)
     before = len(df)
     df = df.drop_duplicates(subset=["text"])
@@ -114,9 +156,11 @@ def explore(df: pd.DataFrame) -> None:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--include-mock", action="store_true", help="รวม ml/data/mock_email_dataset.xlsx ด้วย")
+    parser.add_argument("--extra-dir", nargs="+", default=[],
+                        help="โฟลเดอร์เพิ่มเติมที่มีไฟล์ .csv/.xlsx (คอลัมน์ text,label)")
     args = parser.parse_args()
 
-    df = load_raw_datasets(include_mock=args.include_mock)
+    df = load_raw_datasets(include_mock=args.include_mock, extra_dirs=[Path(d) for d in args.extra_dir])
     df["clean_text"] = df["text"].apply(clean_text)
     df = df[df["clean_text"].str.len() > 0]
     explore(df)

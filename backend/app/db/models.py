@@ -24,10 +24,16 @@ class Email(Base):
 
     email_id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     receive_time = Column(DateTime(timezone=True), nullable=True, default=_utcnow)
-    # SHA-256 ของเนื้อหาอีเมล ใช้ตรวจว่า "เคยพบเนื้อหาอีเมลชุดนี้หรือไม่" (UC-04 ข้อ 6)
+    # HMAC-SHA256 ของเนื้อหาอีเมล ใช้ตรวจว่า "เคยพบเนื้อหาอีเมลชุดนี้หรือไม่" (UC-04 ข้อ 6)
+    # ใช้ HMAC แทน SHA-256 ธรรมดา เพื่อไม่ให้ผู้ที่มีสำเนาอีเมลอยู่แล้วนำมาแฮชเทียบ
+    # ว่าอีเมลฉบับนั้นเคยผ่านระบบหรือไม่ได้ (ดู DatabaseManager.make_body_hash)
     body_hash = Column(String(255), nullable=False, unique=True, index=True)
     # เนื้อหาอีเมลที่เข้ารหัสแล้วด้วย DatabaseManager.encrypt() (Class DatabaseManager)
+    # จะเป็น None เมื่อ STORE_EMAIL_CONTENT=false ซึ่งเป็นค่าเริ่มต้น
     body_encrypted = Column(Text, nullable=True)
+    # กำหนดวันหมดอายุของข้อมูลตั้งแต่ตอนบันทึก เพื่อให้ลบทิ้งได้ตาม DATA_RETENTION_DAYS
+    # None = ไม่มีกำหนดลบ (เมื่อตั้ง DATA_RETENTION_DAYS=0)
+    expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     results = relationship("DetectionResult", back_populates="email", cascade="all, delete-orphan")
     tokens = relationship("TokenizedWord", back_populates="email", cascade="all, delete-orphan")

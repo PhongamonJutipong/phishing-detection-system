@@ -1,0 +1,42 @@
+# ไฟล์ที่ไม่ต้องส่งเข้า build context
+# ไม่มีไฟล์นี้ Docker จะอัปโหลดทั้งโฟลเดอร์รวม .venv (ประมาณ 500 MB) ทุกครั้งที่ build
+
+# ===== ความลับ (ต้องไม่หลุดเข้า image เด็ดขาด) =====
+.env
+*.env
+.env.*
+!.env.example
+*.pem
+*.crx
+
+# ===== virtual environment (ใหญ่ที่สุด ไม่ได้ใช้ใน image) =====
+.venv/
+venv/
+env/
+
+# ===== git และไฟล์ที่สร้างใหม่ได้ =====
+.git/
+.github/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# ===== ฐานข้อมูล local =====
+*.db
+*.sqlite3
+
+# ===== ส่วนที่ image ของ backend ไม่ได้ใช้ =====
+ml/data/
+ml/results/
+evaluation/
+extension/
+docs/
+logs/
+*.log
+
+# ===== IDE / OS =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

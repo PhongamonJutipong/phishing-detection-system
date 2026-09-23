@@ -136,7 +136,10 @@ mark.pd-highlight.pd-reason-credential_request { background: #f6aea9; }
 .pd-privacy-overlay {
   background: rgba(11, 15, 20, 0.72);
   backdrop-filter: blur(6px);
-  font-family: "IBM Plex Sans", "IBM Plex Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* ฟอนต์ระบบเท่านั้น content script โหลดเว็บฟอนต์จากภายนอกไม่ได้อยู่แล้ว
+     และไม่ควรทำด้วย เพราะจะทำให้หน้า Gmail ของผู้ใช้ยิงคำขอออกไปที่อื่น */
+  font-family: "IBM Plex Sans", "Segoe UI", -apple-system, BlinkMacSystemFont,
+               "Leelawadee UI", "Thonburi", "Noto Sans Thai", sans-serif;
 }
 
 .pd-privacy {

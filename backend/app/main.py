@@ -6,23 +6,35 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.api.routes import router
 from app.config import settings
 from app.core.logger import logger
 from app.db import models  # noqa: F401  (ลงทะเบียนตารางทั้งหมดกับ Base.metadata)
-from app.db.database import Base, engine
+from app.db.database import SessionLocal, engine
+from app.db.database_manager import DatabaseManager
 from app.ml.model_registry import get_model_registry
 from app.nlp.nlp_process import NLPProcess
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # สร้างตารางอัตโนมัติถ้ายังไม่มี (สำหรับ dev; production ควรใช้ Alembic migration)
+    # โครงสร้างฐานข้อมูลเป็นหน้าที่ของ Alembic ไม่ใช่ create_all()
+    # เพราะ create_all สร้างเฉพาะตารางที่ยังไม่มี แต่ไม่เคย ALTER ตารางเดิม
+    # ถ้าเพิ่มคอลัมน์ใน models.py แล้วพึ่ง create_all ระบบจะขึ้นได้ตามปกติ
+    # แล้วไปพังตอนเขียนข้อมูลแทน ซึ่งหาสาเหตุยากกว่ามาก
+    #   - ใน container: entrypoint รัน alembic upgrade head ให้ก่อนเริ่มเซิร์ฟเวอร์
+    #   - รันบนเครื่อง: สั่ง python -m alembic upgrade head เองจากโฟลเดอร์ backend
     try:
-        Base.metadata.create_all(bind=engine)
-    except Exception as exc:
-        logger.log_error(f"สร้างตารางฐานข้อมูลไม่สำเร็จ: {exc}")
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1 FROM alembic_version"))
+    except Exception:
+        logger.log_warning(
+            "ยังไม่พบตาราง alembic_version — ฐานข้อมูลอาจยังไม่ได้ทำ migration "
+            "ให้สั่ง 'python -m alembic upgrade head' จากโฟลเดอร์ backend ก่อนใช้งาน"
+        )
+
     get_model_registry()  # โหลดโมเดลครั้งเดียวตอนเริ่มระบบ
 
     # อุ่นเครื่องตัวตัดคำภาษาไทย: การสร้างคลังคำ (Trie) ครั้งแรกใช้เวลาประมาณ 0.5 วินาที
@@ -31,6 +43,15 @@ async def lifespan(app: FastAPI):
         NLPProcess().tokenize("ทดสอบระบบ warm up")
     except Exception as exc:
         logger.log_warning(f"อุ่นเครื่องตัวตัดคำไม่สำเร็จ: {exc}")
+
+    # ลบข้อมูลที่เลยกำหนดเก็บตั้งแต่ตอนเริ่มระบบ
+    # เซิร์ฟเวอร์ที่รันค้างยาวจะไม่ได้ลบเพิ่มเอง ให้ตั้ง cron เรียก POST /api/v1/data/purge เป็นรอบ ๆ
+    if settings.data_retention_days > 0:
+        try:
+            with SessionLocal() as db:
+                DatabaseManager(db).purge_expired()
+        except Exception as exc:
+            logger.log_warning(f"ลบข้อมูลหมดอายุตอนเริ่มระบบไม่สำเร็จ: {exc}")
 
     logger.log_info("Phishing Detection API started")
     yield

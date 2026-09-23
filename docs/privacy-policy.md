@@ -46,19 +46,25 @@ PhishMail เป็นส่วนขยาย Chrome ที่ตรวจจ�
 
 | ข้อมูล | รายละเอียด |
 |---|---|
-| ค่าแฮชของเนื้อหา | SHA-256 ของหัวข้อและเนื้อหารวมกัน ใช้ตรวจว่าเคยวิเคราะห์อีเมลนี้แล้วหรือไม่ |
-| เนื้อหาอีเมลที่เข้ารหัส | หัวข้อและเนื้อหา **เข้ารหัสด้วย Fernet (AES-128-CBC + HMAC)** ก่อนบันทึกเสมอ |
+| ค่าแฮชของเนื้อหา | **HMAC-SHA256** ที่มีกุญแจลับของเซิร์ฟเวอร์ ใช้ตรวจว่าเคยวิเคราะห์อีเมลนี้แล้วหรือไม่ ผู้อื่นที่มีสำเนาอีเมลอยู่แล้วไม่สามารถคำนวณค่านี้มาเทียบได้ |
 | เวลาที่รับข้อมูล | วันเวลาที่ระบบได้รับคำขอ |
-| คำที่ตัดได้ ค่า TF-IDF และเวกเตอร์คุณลักษณะ | ใช้ปรับปรุงความแม่นยำของโมเดล |
+| กำหนดวันลบ | วันที่ข้อมูลชุดนี้จะถูกลบอัตโนมัติ |
 | ผลการตรวจ | ค่าความน่าจะเป็น ผลการจำแนกประเภท และเวลาที่ตรวจ |
+
+**โดยค่าเริ่มต้น ระบบไม่เก็บเนื้อหาอีเมล และไม่เก็บคำที่ตัดได้**
+ผู้ดูแลระบบเปิดการเก็บเพิ่มได้ 2 ระดับ ซึ่งต้องแจ้งผู้ใช้ก่อนเสมอ
+
+| ตัวเลือก | ผลเมื่อเปิด |
+|---|---|
+| `STORE_EMAIL_CONTENT=true` | เก็บหัวข้อและเนื้อหาโดย**เข้ารหัสด้วย Fernet (AES-128-CBC + HMAC)** ก่อนบันทึก |
+| `STORE_NLP_ARTIFACTS=true` | เก็บคำที่ตัดได้ ค่า TF-IDF และเวกเตอร์คุณลักษณะรายอีเมล เพื่อใช้ปรับปรุงโมเดล **คำเหล่านี้เก็บเป็นข้อความธรรมดา** ผู้ที่อ่านฐานข้อมูลได้จึงประกอบเนื้อหาอีเมลกลับได้ เปิดเฉพาะเมื่อทำวิจัยและได้รับความยินยอมแล้วเท่านั้น |
 
 **ข้อมูลที่ระบบไม่จัดเก็บ:** ที่อยู่ผู้ส่ง ที่อยู่ผู้รับ ไฟล์แนบ
 ชื่อบัญชีหรืออีเมลของผู้ใช้ และที่อยู่ IP
 
 ที่อยู่ผู้ส่งถูกส่งมาเพื่อใช้วิเคราะห์เท่านั้น **ไม่มีคอลัมน์สำหรับเก็บที่อยู่ผู้ส่งในฐานข้อมูล**
 
-ผู้ดูแลระบบสามารถปิดการเก็บเนื้อหาอีเมลทั้งหมดได้โดยตั้งค่า `STORE_EMAIL_CONTENT=false`
-ซึ่งจะทำให้ระบบบันทึกเฉพาะผลการตรวจโดยไม่เก็บเนื้อหาใด ๆ
+ค่าเริ่มต้นคือบันทึกเฉพาะผลการตรวจโดยไม่เก็บเนื้อหาใด ๆ
 
 ## 5. ข้อมูลที่เก็บไว้ในเครื่องผู้ใช้
 
@@ -83,6 +89,9 @@ PhishMail เป็นส่วนขยาย Chrome ที่ตรวจจ�
 
 ## 7. การเก็บรักษาและการลบข้อมูล
 
+ระบบกำหนดวันลบให้ข้อมูลทุกชุดตั้งแต่ตอนบันทึก ตามค่า `DATA_RETENTION_DAYS`
+(ค่าเริ่มต้น **90 วัน**) และลบข้อมูลที่เลยกำหนดออกโดยอัตโนมัติ
+
 ข้อมูลถูกเก็บในฐานข้อมูลที่ผู้ดูแลระบบควบคุม ผู้ใช้สามารถ
 
 - หยุดการเก็บข้อมูลเพิ่มเติมได้ทันทีโดยกดรีเซ็ตความยินยอมหรือปิดการสแกน
@@ -93,7 +102,8 @@ PhishMail เป็นส่วนขยาย Chrome ที่ตรวจจ�
 
 ## 8. ความปลอดภัย
 
-- เนื้อหาอีเมลถูกเข้ารหัสด้วย Fernet ก่อนบันทึกลงฐานข้อมูลเสมอ
+- ค่าเริ่มต้นไม่เก็บเนื้อหาอีเมล และเมื่อเปิดให้เก็บ เนื้อหาจะถูกเข้ารหัสด้วย Fernet ก่อนบันทึกเสมอ
+- จำกัดจำนวนคำขอต่อผู้เรียกเพื่อกันการยิงถล่ม และเก็บตัวระบุผู้เรียกเป็นค่าแฮช ไม่ใช่ IP ดิบ
 - กุญแจเข้ารหัสถูกเก็บแยกจากฐานข้อมูลในไฟล์ตั้งค่าของเซิร์ฟเวอร์
 - ปลายทางสำหรับการใช้งานจริงควรเป็น HTTPS เท่านั้น
 
@@ -150,11 +160,18 @@ no advertising, and no user tracking.
 
 | Data | Detail |
 |---|---|
-| Content hash | SHA-256 of subject + body, used for duplicate detection |
-| Encrypted content | Subject and body, **always encrypted with Fernet (AES-128-CBC + HMAC)** before storage |
+| Content hash | **HMAC-SHA256** keyed with a server secret, used for duplicate detection. Someone holding a copy of the email cannot compute this value to check whether it passed through the system |
 | Receive timestamp | When the request was received |
-| Tokens, TF-IDF values, feature vectors | Used to improve model accuracy |
+| Deletion deadline | When this record will be deleted automatically |
 | Detection result | Probability, classification, scan time |
+
+**By default the system stores neither email content nor tokenized words.**
+Operators can enable two additional levels of storage, and must inform users before doing so.
+
+| Option | Effect when enabled |
+|---|---|
+| `STORE_EMAIL_CONTENT=true` | Stores subject and body, **encrypted with Fernet (AES-128-CBC + HMAC)** before writing |
+| `STORE_NLP_ARTIFACTS=true` | Stores per-email tokens, TF-IDF values and feature vectors for model improvement. **These words are stored in plaintext**, so anyone with database read access can reconstruct the substance of the email. Enable only for research, with consent |
 
 **Not stored:** sender address, recipient address, attachments, the user's
 account name or email address, and IP addresses.
@@ -162,8 +179,7 @@ account name or email address, and IP addresses.
 The sender address is transmitted for analysis only — **the database schema has
 no column for it**.
 
-Operators may disable content storage entirely by setting
-`STORE_EMAIL_CONTENT=false`, in which case only detection results are recorded.
+The default configuration records only detection results and no content.
 
 ## 5. Data stored locally
 
@@ -181,6 +197,10 @@ purpose beyond those stated above.
 
 ## 7. Retention and deletion
 
+Every record is given a deletion deadline when it is written, based on
+`DATA_RETENTION_DAYS` (default **90 days**), and expired records are deleted
+automatically.
+
 Users can stop further collection immediately by resetting consent or disabling
 scanning, and may request deletion of related data via the contact below.
 
@@ -189,8 +209,9 @@ deleting the local database removes all stored data.
 
 ## 8. Security
 
-Email content is always encrypted with Fernet before being written to the
-database. The encryption key is stored separately from the database in the
+By default no email content is stored at all; when storage is enabled, content is
+always encrypted with Fernet before being written. Requests are rate limited per
+caller, and the caller identifier is hashed rather than stored as a raw IP address. The encryption key is stored separately from the database in the
 server's configuration file. Production endpoints should use HTTPS only.
 
 ## 9. Contact

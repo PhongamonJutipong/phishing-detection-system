@@ -1,0 +1,30 @@
+# บังคับรูปแบบการขึ้นบรรทัดใหม่ ไม่ให้ขึ้นกับค่า core.autocrlf ของแต่ละเครื่อง
+#
+# ทำไมต้องมีไฟล์นี้: บน Windows ค่า core.autocrlf มักเป็น true ซึ่งแปลง LF เป็น CRLF
+# ตอน checkout ถ้าไฟล์เชลล์สคริปต์โดนแปลงด้วย คอนเทนเนอร์ Linux จะรันไม่ขึ้น
+# แล้วขึ้น error แบบ "bad interpreter: /bin/sh^M" ซึ่งหาสาเหตุยากมาก
+
+# ให้ git เดารูปแบบเองเป็นค่าตั้งต้น
+* text=auto
+
+# ===== ต้องเป็น LF เสมอ เพราะถูกใช้ภายใน Linux container =====
+*.sh              text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile        text eol=lf
+*.yml             text eol=lf
+*.yaml            text eol=lf
+.dockerignore     text eol=lf
+
+# ===== ต้องเป็น CRLF เพราะใช้บน Windows =====
+*.ps1             text eol=crlf
+*.bat             text eol=crlf
+*.cmd             text eol=crlf
+
+# ===== ไฟล์ไบนารี ห้ามแตะ =====
+*.png             binary
+*.jpg             binary
+*.ico             binary
+*.pkl             binary
+*.joblib          binary
+*.xlsx            binary
+*.pdf             binary

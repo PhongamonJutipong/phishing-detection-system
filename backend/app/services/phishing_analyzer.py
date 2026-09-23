@@ -91,6 +91,7 @@ class PhishingAnalyzer:
             per_language[lang] = (model, vector, model.predict(vector))
         # โมเดลที่ไม่รู้จักคำใดในอีเมลเลย (เวกเตอร์ว่าง) จะให้แค่ค่า prior ของคลาส — ไม่นำมาเทียบ
         known = {lang: v for lang, v in per_language.items() if v[1].nnz > 0}
+        has_known_terms = bool(known)
         if known:
             per_language = known
 
@@ -99,12 +100,22 @@ class PhishingAnalyzer:
         best_model, best_vector, best_prediction = per_language[language]
         probability = best_prediction["probability"]
 
+        if not has_known_terms:
+            # ไม่มีคำใดในอีเมลอยู่ในคลังคำของโมเดลเลย predict_proba จึงคืนเพียงค่า prior ของคลาส
+            # ซึ่งไม่ได้มาจากการอ่านเนื้อหา และบังเอิญสูงกว่าเกณฑ์ "อันตราย" ผลคือข้อความที่ระบบ
+            # อ่านไม่ออก (ภาษาอื่น ตัวเลขล้วน คำที่ไม่เคยเห็น) ถูกตัดสินว่าอันตรายทั้งหมด
+            # ระบบมีหน้าที่ชี้ว่า "พบสัญญาณฟิชชิง" เมื่อไม่พบสัญญาณใดเลยจึงต้องไม่รายงานคะแนน
+            probability = 0.0
+
         level = risk_level_for(probability)
         is_phishing = probability >= settings.min_risk_threshold
         classification = "phishing" if is_phishing else "legitimate"
 
         suspicious_keywords = self._keywords_for_highlight(best_prediction["suspicious_terms"])
         indicators = self._find_indicators(raw_text)
+        if not has_known_terms:
+            # บอกผู้ใช้ตรง ๆ ว่าผลนี้ไม่ได้มาจากการวิเคราะห์เนื้อหา จะได้ไม่เข้าใจว่าระบบยืนยันว่าปลอดภัย
+            indicators.insert(0, {"category": "no_known_terms", "phrases": []})
         highlights = self._build_highlights(suspicious_keywords, indicators)
 
         result_id = self._save_log(email, tokens, language, probability, classification, best_model, best_vector)

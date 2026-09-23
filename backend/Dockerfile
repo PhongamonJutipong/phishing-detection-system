@@ -19,13 +19,27 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 COPY common/ ./common/
 COPY backend/app/ ./app/
 
+# ไฟล์ migration ต้องอยู่ใน image ด้วย เพราะ entrypoint เรียก alembic upgrade head
+# ก่อนเปิดรับคำขอ (โครงสร้างฐานข้อมูลเป็นของ Alembic ไม่ได้สร้างด้วย create_all แล้ว)
+COPY backend/alembic.ini ./alembic.ini
+COPY backend/alembic/ ./alembic/
+
+COPY backend/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # ไฟล์โมเดล .pkl (ถ้ามีตอน build) — โปรดักชันจริงควรอัปโหลด/mount แยกแทนการฝังใน image
 COPY backend/ml_model/ ./ml_model/
-RUN mkdir -p /app/logs
+
+# รันด้วยผู้ใช้ธรรมดา ไม่ใช่ root — ถ้ามีช่องโหว่ในแอป ผู้โจมตีจะไม่ได้สิทธิ์ root ใน container
+RUN mkdir -p /app/logs \
+    && useradd --create-home --uid 10001 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')" || exit 1
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

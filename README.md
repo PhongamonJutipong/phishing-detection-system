@@ -3,6 +3,18 @@
 โค้ดชุดนี้พัฒนาตามเอกสารโครงงาน บทที่ 1–3 (ขอบเขต 1.5, แผนภาพยูสเคส/คลาส/ลำดับงาน/กิจกรรม,
 ER diagram + พจนานุกรมข้อมูล, การออกแบบหน้าจอ และวิธีการวัดผล 3.4)
 
+> ### เพิ่งได้รับโปรเจคนี้มา เริ่มที่นี่
+>
+> อ่าน **[docs/SETUP.md](docs/SETUP.md)** — คู่มือติดตั้งตั้งแต่ต้นจนรันได้ พร้อมปัญหาที่เจอบ่อยและสิ่งที่ยังค้างอยู่
+>
+> ติดตั้งแบบรวดเดียวบน Windows:
+> ```powershell
+> powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+> ```
+>
+> **สำคัญ:** ไฟล์โมเดล `.pkl` ไม่ได้อยู่ใน git ต้องเทรนเองก่อนถึงจะรันระบบได้
+> (สคริปต์ข้างบนทำให้แล้ว)
+
 ```
 phishing-detection-system/
 ├── common/                      # โค้ดที่ ml/ และ backend/ ใช้ร่วมกัน (single source of truth)
@@ -105,13 +117,43 @@ phishing-detection-system/
    > ชุดข้อมูลจำลองใช้ทดสอบ pipeline เท่านั้น ค่าความแม่นยำที่ใช้รายงานต้องมาจากชุดข้อมูลจริง (~18,500 ฉบับ ตามบทที่ 3.3.2)
 
 2. **รัน backend**
-   - Docker: `docker-compose up -d --build`
-   - หรือแบบ dev: `docker-compose up -d postgres` แล้ว
+
+   **แบบคอนเทนเนอร์ทั้งระบบ (แนะนำ — ใกล้เคียงการใช้งานจริงที่สุด)**
+   ```bash
+   cp backend/.env.example backend/.env   # ต้องทำก่อน ตั้ง ENCRYPTION_KEY และ ADMIN_TOKEN
+   docker compose up -d --build
+   ```
+   - ต้องมี `backend/.env` **ก่อน** สั่ง `up` เพราะ service backend อ่านค่าความลับจากไฟล์นั้นผ่าน `env_file`
+   - คอนเทนเนอร์ backend รัน `alembic upgrade head` ให้เองก่อนเปิดรับคำขอ ไม่ต้องสั่งเพิ่ม
+   - `DATABASE_URL`, `MODEL_DIR`, `LOG_FILE` ถูกทับด้วยค่าใน `docker-compose.yml` เพราะ path
+     และชื่อโฮสต์ใน container ต่างจากบนเครื่อง ค่าที่เหลือทั้งหมดมาจาก `backend/.env`
+   - ข้อมูลอยู่ใน named volume `phishing_pg_data` จึงไม่หายเมื่อ `docker compose down`
+     **หายก็ต่อเมื่อสั่ง `docker compose down -v` เท่านั้น**
+
+   คำสั่งที่ใช้บ่อย
+
+   | คำสั่ง | ผล |
+   |---|---|
+   | `docker compose ps` | ดูสถานะทั้งสอง container |
+   | `docker compose logs -f backend` | ดู log แบบเรียลไทม์ |
+   | `docker compose stop` | หยุดชั่วคราว ข้อมูลอยู่ครบ |
+   | `docker compose down` | ลบ container แต่ข้อมูลยังอยู่ |
+   | `docker compose down -v` | **ลบข้อมูลทั้งหมดด้วย** |
+
+   **แบบ dev (รัน uvicorn บนเครื่อง ใช้ Postgres จากคอนเทนเนอร์)**
+   - `docker compose up -d postgres` แล้ว
      ```bash
      cd backend && cp .env.example .env   # ตั้ง ENCRYPTION_KEY และ ADMIN_TOKEN
      # DATABASE_URL ต้องชี้ไป PostgreSQL (ค่าตัวอย่างอยู่ใน .env.example)
+     python -m alembic upgrade head       # สร้าง/อัปเดตตารางให้ตรงกับ models.py
      uvicorn app.main:app --reload
      ```
+   - **ต้องรัน `alembic upgrade head` ทุกครั้งที่ `models.py` เปลี่ยน** — ตอนเริ่มระบบมี
+     `create_all()` ที่สร้างเฉพาะตารางที่ยังไม่มี แต่ไม่เคย ALTER ตารางเดิม
+     ถ้าเพิ่มคอลัมน์แล้วไม่ทำ migration ระบบจะพังตอนเขียนข้อมูล
+   - ค่าเริ่มต้นตั้งไว้แบบเน้นความเป็นส่วนตัว: **ไม่เก็บเนื้อหาอีเมล ไม่เก็บคำที่ตัดได้
+     และลบข้อมูลอัตโนมัติเมื่อครบ 90 วัน** ถ้าต้องเก็บข้อมูลเพื่อทำวิจัยให้ตั้ง
+     `STORE_EMAIL_CONTENT=true` และ `STORE_NLP_ARTIFACTS=true` (ดูคำเตือนใน `.env.example`)
    - หน้าแรก: http://127.0.0.1:8000/ · หน้าตรวจสอบอีเมล: http://127.0.0.1:8000/scan.html · Swagger UI: http://127.0.0.1:8000/docs
    - **บน Windows ให้ใช้ `127.0.0.1` แทน `localhost`** — การต่อผ่านชื่อ localhost จะลอง IPv6 (`::1`) ก่อน
      แล้วค่อยถอยมาใช้ IPv4 ซึ่งวัดได้ว่าเสียเวลาคงที่ประมาณ 2 วินาทีต่อ request (เวลาประมวลผลจริงของระบบ

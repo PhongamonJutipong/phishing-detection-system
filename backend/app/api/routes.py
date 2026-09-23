@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.api.rate_limit import rate_limit_analyze
 from app.config import settings
 from app.core.logger import logger
 from app.db.database import get_db
@@ -24,7 +25,8 @@ def require_admin(x_admin_token: str | None = Header(default=None)):
 @router.post(
     "/analyze",
     response_model=EmailAnalyzeResponse,
-    responses={503: {"model": ErrorResponse}},
+    responses={429: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+    dependencies=[Depends(rate_limit_analyze)],
 )
 def analyze_email(
     request: EmailAnalyzeRequest,
@@ -81,3 +83,15 @@ def reload_models(registry: ModelRegistry = Depends(get_model_registry)):
 def stats(db: Session = Depends(get_db)):
     """getFeedbackData(): สถิติการตรวจจับสำหรับประเมินประสิทธิภาพของโมเดล"""
     return DatabaseManager(db).get_feedback_data()
+
+
+@router.post("/data/purge", dependencies=[Depends(require_admin)])
+def purge_expired_data(db: Session = Depends(get_db)):
+    """
+    ลบข้อมูลที่เลยกำหนดเก็บตาม DATA_RETENTION_DAYS
+
+    ระบบเรียกให้หนึ่งครั้งตอนเริ่มทำงาน สำหรับการใช้งานจริงควรตั้ง cron ให้เรียก
+    endpoint นี้เป็นรอบ ๆ เพราะเซิร์ฟเวอร์ที่รันค้างยาวจะไม่ได้ลบข้อมูลเพิ่มเอง
+    ถ้าค้างสะสมมาก ให้เรียกซ้ำจนกว่า remaining จะเป็น 0
+    """
+    return DatabaseManager(db).purge_expired()

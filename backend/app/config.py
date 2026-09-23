@@ -30,8 +30,32 @@ class Settings(BaseSettings):
     # encryptionKey ของ DatabaseManager (Fernet key แบบ urlsafe base64 32 ไบต์)
     # สร้างด้วย: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     encryption_key: str = ""
-    # เก็บเนื้อหาอีเมล (เข้ารหัสแล้ว) ลงฐานข้อมูลหรือไม่ — ปิดได้เพื่อความเป็นส่วนตัว
-    store_email_content: bool = True
+
+    # ===== ความเป็นส่วนตัวของข้อมูล =====
+    # ค่าเริ่มต้นทั้งหมดในกลุ่มนี้ตั้งไว้แบบ "ปลอดภัยที่สุดก่อน" (privacy by default)
+    # การเปิดใช้งานแต่ละตัวคือการเลือกเก็บข้อมูลส่วนบุคคลเพิ่ม ต้องมีเหตุผลรองรับเสมอ
+
+    # เก็บเนื้อหาอีเมล (เข้ารหัส Fernet) ลงฐานข้อมูลหรือไม่
+    store_email_content: bool = False
+
+    # เก็บคำที่ตัดได้ ค่า TF-IDF และเวกเตอร์คุณลักษณะ "รายอีเมล" หรือไม่
+    #
+    # คำเตือน: ข้อมูลชุดนี้เก็บคำของอีเมลเป็นข้อความธรรมดาผูกกับ email_id
+    # ผู้ที่อ่านฐานข้อมูลได้สามารถประกอบเนื้อหาอีเมลกลับได้ แม้ body_encrypted จะเข้ารหัสไว้
+    # เปิดเฉพาะตอนเก็บข้อมูลเพื่อทำวิจัยและต้องแจ้งผู้ใช้ให้ทราบ ห้ามเปิดบนระบบจริง
+    store_nlp_artifacts: bool = False
+
+    # ลบข้อมูลที่เก่ากว่ากี่วัน (0 = ไม่ลบอัตโนมัติ)
+    data_retention_days: int = 90
+
+    # กุญแจสำหรับทำ HMAC ของ body_hash เพื่อไม่ให้ผู้อื่นนำอีเมลที่มีอยู่มาแฮชเทียบ
+    # ว่าเคยผ่านระบบหรือไม่ได้ ว่างไว้จะใช้ encryption_key แทน
+    hash_pepper: str = ""
+
+    # จำกัดจำนวนคำขอต่อ IP ต่อนาทีสำหรับ POST /analyze (0 = ไม่จำกัด)
+    analyze_rate_limit_per_minute: int = 60
+    # ขนาดสูงสุดของตาราง rate limit ในหน่วยความจำ กัน memory โตไม่จำกัด
+    rate_limit_max_clients: int = 10000
 
     # Logger
     log_file: str = str(Path(__file__).parent.parent / "logs" / "backend.log")

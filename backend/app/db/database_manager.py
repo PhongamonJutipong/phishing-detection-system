@@ -5,11 +5,14 @@ Class DatabaseManager (แผนภาพคลาส รูปที่ 3.2)
 บันทึกประวัติการสแกน (saveSecureLog) และดึงข้อมูลสถิติ (getFeedbackData)
 """
 import hashlib
-from datetime import date, datetime, timezone
+import hmac
+import uuid
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy import func
+from sqlalchemy import delete, func, insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -56,7 +59,23 @@ class DatabaseManager:
 
     @staticmethod
     def make_body_hash(subject: str, body: str) -> str:
-        return hashlib.sha256(f"{subject}||{body}".encode("utf-8")).hexdigest()
+        """
+        HMAC-SHA256 ของหัวข้อ+เนื้อหา ใช้ตรวจอีเมลซ้ำ
+
+        ใช้ HMAC ที่มีกุญแจแทน SHA-256 ธรรมดา เพราะ SHA-256 ธรรมดาทำให้ผู้ที่มีสำเนา
+        อีเมลอยู่แล้ว (เช่น ผู้ส่งสแปมเอง) แฮชอีเมลนั้นแล้วค้นในฐานข้อมูลเพื่อยืนยันว่า
+        เป้าหมายเคยเปิดอ่านอีเมลฉบับนั้นหรือไม่ได้ การใส่กุญแจปิดช่องทางนี้
+        """
+        pepper = settings.hash_pepper or settings.encryption_key
+        payload = f"{subject}||{body}".encode("utf-8")
+        if not pepper:
+            # ไม่มีกุญแจให้ใช้ ยังต้องแฮชได้เพื่อไม่ให้ระบบล่ม แต่ต้องเตือนให้ชัด
+            logger.log_warning(
+                "ไม่ได้ตั้ง HASH_PEPPER หรือ ENCRYPTION_KEY — body_hash จะเป็น SHA-256 ธรรมดา "
+                "ซึ่งผู้อื่นนำอีเมลมาแฮชเทียบได้ ควรตั้งค่าก่อนใช้งานจริง"
+            )
+            return hashlib.sha256(payload).hexdigest()
+        return hmac.new(pepper.encode("utf-8"), payload, hashlib.sha256).hexdigest()
 
     # ---------- checkData ----------
     def check_data(self, body_hash: str) -> Email | None:
@@ -108,14 +127,24 @@ class DatabaseManager:
                 email = Email(
                     body_hash=log["body_hash"],
                     receive_time=datetime.now(timezone.utc),
+                    expires_at=self._expiry_time(),
                     body_encrypted=(
                         self.encrypt(f"{log.get('subject', '')}\n\n{log['body']}")
                         if settings.store_email_content else None
                     ),
                 )
-                db.add(email)
-                db.flush()
-                self._save_nlp_artifacts(email, log)
+                try:
+                    # SAVEPOINT: ถ้าคำขออีกเส้นแทรกอีเมลเนื้อหาเดียวกันเข้ามาก่อนในเสี้ยววินาที
+                    # เดียวกัน UNIQUE ของ body_hash จะฟ้อง เรายกเลิกเฉพาะ savepoint นี้
+                    # แล้วใช้แถวที่อีกเส้นสร้างไว้แทน ธุรกรรมชั้นนอกไม่ถูก abort
+                    # (สำคัญบน PostgreSQL ที่ error หนึ่งครั้งทำให้ทั้งธุรกรรมใช้ต่อไม่ได้)
+                    with db.begin_nested():
+                        db.add(email)
+                    self._save_nlp_artifacts(email, log)
+                except IntegrityError:
+                    email = self.check_data(log["body_hash"])
+                    if email is None:
+                        raise
 
             model = log["model"]
             detection_model = self.get_or_create_model(model.model_name(), "Multinomial Naive Bayes", model.metadata)
@@ -134,26 +163,111 @@ class DatabaseManager:
             db.rollback()
             raise
 
+    @staticmethod
+    def _expiry_time() -> datetime | None:
+        """เวลาหมดอายุของข้อมูลที่กำลังจะบันทึก (None = เก็บไว้ไม่มีกำหนด)"""
+        days = settings.data_retention_days
+        if days <= 0:
+            return None
+        return datetime.now(timezone.utc) + timedelta(days=days)
+
     def _save_nlp_artifacts(self, email: Email, log: dict) -> None:
-        token_rows = {}
+        """
+        บันทึกคำที่ตัดได้ ค่า TF-IDF และเวกเตอร์คุณลักษณะรายอีเมล
+
+        ปิดไว้เป็นค่าเริ่มต้น เพราะคอลัมน์ word และ feature_name เก็บคำของอีเมล
+        เป็นข้อความธรรมดาผูกกับ email_id ผู้ที่อ่านฐานข้อมูลได้จึงประกอบเนื้อหาอีเมล
+        กลับมาได้ ทั้งที่ body_encrypted เข้ารหัสไว้แล้ว เปิดเฉพาะตอนเก็บข้อมูลวิจัย
+        """
+        if not settings.store_nlp_artifacts:
+            return
+
+        db = self.db_connection
+        # สร้าง token_id ไว้ล่วงหน้า จะได้ผูก tfidf ได้โดยไม่ต้อง flush คั่นกลาง
+        token_ids: dict[str, uuid.UUID] = {}
+        token_rows = []
         for word, freq in log.get("token_counts", {}).items():
-            row = TokenizedWord(word=word[:50], frequency=int(freq), email_id=email.email_id)
-            self.db_connection.add(row)
-            token_rows[word] = row
-        self.db_connection.flush()
+            token_ids[word] = uuid.uuid4()
+            token_rows.append({
+                "token_id": token_ids[word],
+                "word": word[:50],
+                "frequency": int(freq),
+                "email_id": email.email_id,
+            })
 
-        for word, tf, idf, score in log.get("tfidf_rows", []):
-            token = token_rows.get(word)
-            if token is None:
-                continue
-            self.db_connection.add(
-                TfidfFeature(tf_value=tf, idf_value=idf, tfidf_score=score, token_id=token.token_id)
-            )
+        tfidf_rows = [
+            {
+                "tfidf_id": uuid.uuid4(),
+                "tf_value": tf,
+                "idf_value": idf,
+                "tfidf_score": score,
+                "token_id": token_ids[word],
+            }
+            for word, tf, idf, score in log.get("tfidf_rows", [])
+            if word in token_ids
+        ]
+        feature_rows = [
+            {
+                "vector_id": uuid.uuid4(),
+                "feature_name": str(name)[:255],
+                "feature_value": float(value),
+                "email_id": email.email_id,
+            }
+            for name, value in log.get("features", [])
+        ]
 
-        for name, value in log.get("features", []):
-            self.db_connection.add(
-                FeatureVector(feature_name=name[:255], feature_value=float(value), email_id=email.email_id)
-            )
+        # เขียนเป็นชุดด้วย executemany แทนการ add ทีละแถว
+        # อีเมลหนึ่งฉบับสร้างได้หลายร้อยแถว การ add ทีละแถวคือเวลาส่วนใหญ่ของคำขอ
+        if token_rows:
+            db.execute(insert(TokenizedWord), token_rows)
+        if tfidf_rows:
+            db.execute(insert(TfidfFeature), tfidf_rows)
+        if feature_rows:
+            db.execute(insert(FeatureVector), feature_rows)
+
+    # ---------- การลบข้อมูลตามกำหนดเก็บ ----------
+    def purge_expired(self, batch_size: int = 1000) -> dict:
+        """
+        ลบข้อมูลที่เลยกำหนดเก็บแล้ว (DATA_RETENTION_DAYS)
+
+        ลบลูกก่อนพ่อแม่ เพราะ ForeignKey ในฐานข้อมูลไม่ได้ตั้ง ON DELETE CASCADE ไว้
+        (cascade ที่ประกาศใน models.py เป็นระดับ ORM ซึ่งไม่ทำงานกับคำสั่ง DELETE แบบชุด)
+        ทำทีละชุดเพื่อไม่ให้คำสั่ง SQL ยาวเกินไปเมื่อข้อมูลค้างสะสมมาก
+        """
+        db = self.db_connection
+        now = datetime.now(timezone.utc)
+        expired_ids = [
+            row[0]
+            for row in db.query(Email.email_id)
+            .filter(Email.expires_at.isnot(None), Email.expires_at <= now)
+            .limit(batch_size)
+            .all()
+        ]
+        if not expired_ids:
+            return {"deleted_emails": 0, "remaining": 0}
+
+        token_ids = [
+            row[0]
+            for row in db.query(TokenizedWord.token_id)
+            .filter(TokenizedWord.email_id.in_(expired_ids))
+            .all()
+        ]
+        if token_ids:
+            db.execute(delete(TfidfFeature).where(TfidfFeature.token_id.in_(token_ids)))
+        db.execute(delete(TokenizedWord).where(TokenizedWord.email_id.in_(expired_ids)))
+        db.execute(delete(FeatureVector).where(FeatureVector.email_id.in_(expired_ids)))
+        db.execute(delete(DetectionResult).where(DetectionResult.email_id.in_(expired_ids)))
+        db.execute(delete(Email).where(Email.email_id.in_(expired_ids)))
+        db.commit()
+
+        remaining = (
+            db.query(func.count(Email.email_id))
+            .filter(Email.expires_at.isnot(None), Email.expires_at <= now)
+            .scalar()
+            or 0
+        )
+        logger.log_info(f"ลบข้อมูลที่หมดอายุแล้ว {len(expired_ids)} อีเมล คงเหลือรอลบ {remaining}")
+        return {"deleted_emails": len(expired_ids), "remaining": remaining}
 
     # ---------- getFeedbackData ----------
     def get_feedback_data(self) -> dict:

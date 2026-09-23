@@ -21,9 +21,17 @@
   --warn: #F2A93B;
   --safe: #4ADE80;
 
-  --font-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
-  --font-body: "IBM Plex Sans", "IBM Plex Sans Thai", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* ใช้ฟอนต์ที่มีอยู่ในเครื่องเท่านั้น ไม่ดึงจากอินเทอร์เน็ต
+     เดิมโหลดจาก Google Fonts ซึ่งทำให้เบราว์เซอร์ของผู้ใช้ทุกคนต้องติดต่อเซิร์ฟเวอร์ของ Google
+     เปิดเผยทั้งที่อยู่ IP และหน้าที่เปิด ขัดกับจุดยืนด้านความเป็นส่วนตัวของระบบนี้
+     ชื่อฟอนต์ชุดแรกในแต่ละบรรทัดจะถูกใช้ก็ต่อเมื่อเครื่องนั้นติดตั้งไว้เองเท่านั้น
+     ที่เหลือเป็นฟอนต์ระบบที่รองรับภาษาไทย: Windows ใช้ Leelawadee UI,
+     macOS ใช้ Thonburi, Linux ใช้ Noto Sans Thai */
+  --font-display: "Bricolage Grotesque", "Segoe UI", -apple-system, BlinkMacSystemFont,
+                  "Leelawadee UI", "Thonburi", "Noto Sans Thai", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", -apple-system, BlinkMacSystemFont,
+               "Leelawadee UI", "Thonburi", "Noto Sans Thai", "Sarabun", sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, "SF Mono", "DejaVu Sans Mono", ui-monospace, monospace;
 
   --radius: 14px;
   --radius-sm: 10px;
