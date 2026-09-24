@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
@@ -124,18 +125,42 @@ class SpaStaticFiles(StaticFiles):
         # StaticFiles "โยน" HTTPException(404) ออกมา ไม่ได้คืน response ที่มี status 404
         # จึงต้องดักที่ exception ไม่ใช่ตรวจ status_code ของค่าที่คืนมา
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
         except StarletteHTTPException as exc:
-            if exc.status_code == 404:
-                return await super().get_response("index.html", scope)
-            raise
+            if exc.status_code != 404:
+                raise
+            path = "index.html"
+            response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = _cache_control_for(path)
+        return response
+
+
+# ไฟล์ที่ Angular ใส่ hash ของเนื้อหาไว้ในชื่อ เช่น main-HCUYNKYS.js หรือ chunk-B4dHN1h2.js
+# เนื้อหาเปลี่ยนเมื่อไรชื่อก็เปลี่ยน จึงให้เบราว์เซอร์เก็บได้ 1 ปีโดยไม่ต้องถามเซิร์ฟเวอร์ซ้ำ
+_HASHED_ASSET = re.compile(r"-[A-Za-z0-9_-]{8}\.(?:js|css)$")
+
+
+def _cache_control_for(path: str) -> str:
+    if _HASHED_ASSET.search(path):
+        return "public, max-age=31536000, immutable"
+    # index.html และไฟล์อื่นต้องถามเซิร์ฟเวอร์ทุกครั้ง (ได้ 304 ถ้าไม่เปลี่ยน)
+    # ไม่อย่างนั้นหลัง deploy ผู้ใช้จะค้างอยู่กับหน้าเก่าที่ชี้ไปยังไฟล์ JS ที่ไม่มีแล้ว
+    return "no-cache"
 
 
 # หน้าเว็บ Angular เสิร์ฟจาก origin เดียวกับ API จึงไม่ต้องตั้งค่าที่อยู่เซิร์ฟเวอร์และไม่ติด CORS
 # ต้อง mount ท้ายสุด เพราะ path "/" จะรับทุก path ที่ route อื่นไม่ได้จับไว้ก่อนแล้ว
 WEB_DIR = Path(__file__).parent / "web"
 if (WEB_DIR / "index.html").is_file():
-    app.mount("/", SpaStaticFiles(directory=WEB_DIR, html=True), name="web")
+    # บีบอัดเฉพาะไฟล์หน้าเว็บ (JS หลัก 250 KB เหลือราว 70 KB) ไม่บีบอัด API
+    # เพราะคำตอบของ API เล็กอยู่แล้ว และคำตอบของ /auth มี token ปนกับข้อมูลที่ผู้ใช้กรอก
+    # ซึ่งเข้าเงื่อนไขของการโจมตีแบบ BREACH ที่อาศัยการเดาจากขนาดหลังบีบอัด
+    # compresslevel 6 เร็วกว่าค่าเริ่มต้น 9 มาก แต่ได้ขนาดต่างกันไม่ถึงร้อยละ 2
+    app.mount(
+        "/",
+        GZipMiddleware(SpaStaticFiles(directory=WEB_DIR, html=True), minimum_size=1024, compresslevel=6),
+        name="web",
+    )
 else:
     logger.log_warning(
         f"ไม่พบหน้าเว็บที่ {WEB_DIR} — ให้บริการเฉพาะ API "

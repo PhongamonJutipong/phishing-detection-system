@@ -25,6 +25,10 @@ class PhishingModel:
         self.classifier = None
         self.vectorizer = None
         self.metadata: dict = {}
+        # ค่าที่คำนวณครั้งเดียวตอนโหลดโมเดล แทนการคำนวณใหม่ทุกคำขอ (ดู _prepare_fast_path)
+        self.feature_names = None
+        self._phishing_idx = 0
+        self._log_ratio = None
 
     def load_model(self) -> None:
         """loadModel(): โหลดโมเดลนาอีฟเบย์ + TF-IDF vectorizer (UC-04 ทางเลือก 9.1 ถ้าไม่สำเร็จ)"""
@@ -40,6 +44,22 @@ class PhishingModel:
         metadata_path = self.model_path / METADATA_FILE
         if metadata_path.exists():
             self.metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        self._prepare_fast_path()
+
+    def _prepare_fast_path(self) -> None:
+        """
+        เตรียมค่าที่ใช้ซ้ำทุกคำขอไว้ล่วงหน้า
+
+        get_feature_names_out() สร้างรายการคำศัพท์ทั้งคลังใหม่ทุกครั้งที่เรียก โมเดลอังกฤษมี
+        670,000 คำ ใช้เวลาราว 350 ms ต่อครั้ง ซึ่งเคยเป็นเวลาเกือบทั้งหมดของแต่ละคำขอ
+        """
+        self.feature_names = self.vectorizer.get_feature_names_out()
+        classes = list(self.classifier.classes_)
+        self._phishing_idx = classes.index(PHISHING_LABEL) if PHISHING_LABEL in classes else len(classes) - 1
+        log_prob = getattr(self.classifier, "feature_log_prob_", None)
+        if log_prob is not None and log_prob.shape[0] >= 2:
+            normal_idx = 1 - self._phishing_idx if log_prob.shape[0] == 2 else 0
+            self._log_ratio = log_prob[self._phishing_idx] - log_prob[normal_idx]
 
     @property
     def is_loaded(self) -> bool:
@@ -53,35 +73,37 @@ class PhishingModel:
         if not self.is_loaded:
             raise RuntimeError(f"โมเดลภาษา '{self.language}' ยังไม่ถูกโหลด")
 
-        classes = list(self.classifier.classes_)
-        phishing_idx = classes.index(PHISHING_LABEL) if PHISHING_LABEL in classes else len(classes) - 1
-        probability = float(self.classifier.predict_proba(vector)[0][phishing_idx])
-
+        row = vector.tocsr()
         return {
-            "probability": probability,
-            "suspicious_terms": self._suspicious_terms(vector, phishing_idx),
+            "probability": self._phishing_probability(row),
+            "suspicious_terms": self._suspicious_terms(row),
         }
 
-    def _suspicious_terms(self, vector, phishing_idx: int) -> list[tuple[str, float]]:
+    def _phishing_probability(self, row) -> float:
+        """
+        P(ฟิชชิง | อีเมล) ตามทฤษฎีของเบย์ สูตรเดียวกับ MultinomialNB.predict_proba ทุกประการ
+          log P(c|x) ∝ log P(c) + Σ x_i · log P(คำ_i|c)   แล้ว normalize ด้วย log-sum-exp
+
+        คำนวณเฉพาะคำที่ปรากฏในอีเมล (ส่วนใหญ่ไม่กี่สิบคำ) ข้ามขั้นตรวจสอบข้อมูลของ sklearn
+        ที่ไล่ทั้ง 670,000 คอลัมน์ทุกครั้ง เร็วขึ้นหลายสิบเท่า ผลเท่าเดิม (ทดสอบไว้ใน test_components)
+        """
+        clf = self.classifier
+        jll = clf.class_log_prior_ + clf.feature_log_prob_[:, row.indices] @ row.data
+        jll = jll - jll.max()
+        prob = np.exp(jll)
+        return float(prob[self._phishing_idx] / prob.sum())
+
+    def _suspicious_terms(self, row) -> list[tuple[str, float]]:
         """
         หาคำที่ผลักให้โมเดลตัดสินว่าเป็นฟิชชิง: ค่า TF-IDF ของคำ x (log P(คำ|ฟิชชิง) - log P(คำ|ปกติ))
         เลือกเฉพาะคำที่มีค่าเป็นบวก เรียงจากมากไปน้อย — ใช้สำหรับไฮไลต์คำเสี่ยงให้ผู้ใช้
         """
-        log_prob = getattr(self.classifier, "feature_log_prob_", None)
-        if log_prob is None or log_prob.shape[0] < 2:
-            return []
-        normal_idx = 1 - phishing_idx if log_prob.shape[0] == 2 else 0
-        log_ratio = log_prob[phishing_idx] - log_prob[normal_idx]
-
-        row = vector.tocsr()
         indices = row.indices
-        if len(indices) == 0:
+        if self._log_ratio is None or len(indices) == 0:
             return []
-        weights = row.data * log_ratio[indices]
-        feature_names = self.vectorizer.get_feature_names_out()
-
+        weights = row.data * self._log_ratio[indices]
         order = np.argsort(-weights)
-        return [(str(feature_names[indices[i]]), float(weights[i])) for i in order if weights[i] > 0]
+        return [(str(self.feature_names[indices[i]]), float(weights[i])) for i in order if weights[i] > 0]
 
     def model_name(self) -> str:
         return f"naive_bayes_{self.language}"

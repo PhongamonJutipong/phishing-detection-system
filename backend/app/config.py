@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", protected_namespaces=())
 
     database_url: str = "postgresql://phishing_user:phishing_pass@localhost:5432/phishing_db"
+    # จำนวน connection ต่อ 1 โปรเซส (ค่าเริ่มต้นของ SQLAlchemy คือ 5 + 10)
+    # รวมทุกโปรเซสต้องไม่เกิน max_connections ของ PostgreSQL (ค่าเริ่มต้น 100)
+    # เช่น WEB_CONCURRENCY=4 x (10 + 5) = 60
+    db_pool_size: int = 10
+    db_max_overflow: int = 5
 
     # โฟลเดอร์โมเดล: แยกตามภาษา ml_model/en/ และ ml_model/th/ (UC-04 ข้อ 9-11)
     model_dir: str = str(Path(__file__).parent.parent / "ml_model")

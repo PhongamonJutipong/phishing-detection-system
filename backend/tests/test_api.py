@@ -242,3 +242,27 @@ def test_admin_endpoints_require_token(client):
     assert recent["scan_time"].endswith("+00:00")
     reload = client.post("/api/v1/model/reload", headers={"X-Admin-Token": "test-admin-token"})
     assert reload.status_code == 200
+
+
+def test_hashed_assets_are_cached_long_and_index_is_revalidated():
+    from app.main import _cache_control_for
+
+    for name in ("main-HCUYNKYS.js", "chunk-CpsKW6_-.js", "styles-WAJP5JCC.css"):
+        assert "immutable" in _cache_control_for(name)
+    for name in ("index.html", "favicon.ico", "3rdpartylicenses.txt"):
+        assert _cache_control_for(name) == "no-cache"
+
+
+def test_web_assets_are_gzipped_but_api_is_not(client):
+    from app.main import WEB_DIR
+
+    scripts = sorted(WEB_DIR.glob("main-*.js"))
+    if not scripts:
+        pytest.skip("ยังไม่ได้ build หน้าเว็บ")
+    asset = client.get(f"/{scripts[0].name}", headers={"Accept-Encoding": "gzip"})
+    assert asset.headers.get("content-encoding") == "gzip"
+    assert "immutable" in asset.headers["cache-control"]
+    spa = client.get("/scan", headers={"Accept-Encoding": "gzip"})
+    assert spa.headers["cache-control"] == "no-cache"
+    api = client.post("/api/v1/analyze", json=EN_NORMAL, headers={"Accept-Encoding": "gzip"})
+    assert "content-encoding" not in api.headers

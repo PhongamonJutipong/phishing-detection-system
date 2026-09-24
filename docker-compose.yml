@@ -49,6 +49,10 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-phishing_user}:${POSTGRES_PASSWORD:-phishing_pass}@postgres:5432/${POSTGRES_DB:-phishing_db}
       MODEL_DIR: /app/ml_model
       LOG_FILE: /app/logs/backend.log
+      # จำนวนโปรเซสของ uvicorn (uvicorn อ่านค่านี้เอง) ใช้ CPU ได้หลาย core
+      # แต่ละโปรเซสโหลดโมเดลของตัวเอง ใช้หน่วยความจำราว 550 MB ต่อโปรเซส
+      # rate limit นับแยกในแต่ละโปรเซส เพดานจริงจึงเป็น ค่าที่ตั้ง x จำนวนโปรเซส
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-4}
 
     ports:
       - "8000:8000"

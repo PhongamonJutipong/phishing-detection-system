@@ -196,24 +196,24 @@ class PhishingAnalyzer:
         if self.db_manager is None:
             return None
         try:
-            counts = self.nlp.word_frequency(tokens)
-            total = max(len(tokens), 1)
-            vocab = model.vectorizer.vocabulary_
-            idf = getattr(model.vectorizer, "idf_", None)
-            row = vector.tocsr()
+            counts, tfidf_rows, features = {}, [], []
+            # ข้อมูลรายคำใช้เฉพาะเมื่อเปิด STORE_NLP_ARTIFACTS (ค่าเริ่มต้นปิด) ไม่ต้องคำนวณทิ้งทุกคำขอ
+            if settings.store_nlp_artifacts:
+                counts = self.nlp.word_frequency(tokens)
+                total = max(len(tokens), 1)
+                vocab = model.vectorizer.vocabulary_
+                idf = getattr(model.vectorizer, "idf_", None)
+                row = vector.tocsr()
+                for word, freq in counts.items():
+                    idx = vocab.get(word)
+                    if idx is None:
+                        continue
+                    tfidf_rows.append((
+                        word, freq / total, float(idf[idx]) if idf is not None else None, float(row[0, idx])
+                    ))
+                features = [(str(model.feature_names[i]), float(v)) for i, v in zip(row.indices, row.data)]
 
-            tfidf_rows = []
-            for word, freq in counts.items():
-                idx = vocab.get(word)
-                if idx is None:
-                    continue
-                tfidf_rows.append((
-                    word, freq / total, float(idf[idx]) if idf is not None else None, float(row[0, idx])
-                ))
-            names = model.vectorizer.get_feature_names_out()
-            features = [(str(names[i]), float(v)) for i, v in zip(row.indices, row.data)]
-
-            result = self.db_manager.save_secure_log({
+            result_id = self.db_manager.save_secure_log({
                 "subject": email.subject or "",
                 "body": email.body_content,
                 "body_hash": DatabaseManager.make_body_hash(email.subject or "", email.body_content),
@@ -225,7 +225,7 @@ class PhishingAnalyzer:
                 "tfidf_rows": tfidf_rows,
                 "features": features,
             })
-            return str(result.result_id)
+            return str(result_id)
         except Exception as exc:
             logger.log_error(f"บันทึกผลการสแกนลงฐานข้อมูลไม่สำเร็จ: {exc}")
             return None

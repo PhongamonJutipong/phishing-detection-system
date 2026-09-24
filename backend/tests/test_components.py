@@ -41,6 +41,25 @@ def test_phishing_model_returns_probability_and_terms(registry):
     assert "verify" in terms or "password" in terms
 
 
+def test_fast_probability_matches_sklearn_predict_proba(registry):
+    """สูตรที่คำนวณเองเพื่อความเร็วต้องให้ผลเท่ากับ MultinomialNB.predict_proba ทุกกรณี"""
+    import numpy as np
+
+    nlp = NLPProcess()
+    texts = [
+        "Urgent: verify your password now at http://secure-login.com",
+        "Hi team, see you at the meeting on Friday",
+        "กรุณายืนยันตัวตนและรหัสผ่านภายใน 24 ชั่วโมง",
+        "12345 67890",   # ไม่มีคำที่โมเดลรู้จัก ต้องได้ค่า prior เท่ากัน
+    ]
+    for model in registry.available().values():
+        idx = list(model.classifier.classes_).index(1)
+        for text in texts:
+            vector = nlp.vectorize(nlp.remove_stop_words(nlp.tokenize(text)), model.vectorizer)
+            expected = model.classifier.predict_proba(vector)[0][idx]
+            assert np.isclose(model.predict(vector)["probability"], expected, rtol=0, atol=1e-12)
+
+
 def test_database_manager_encrypt_roundtrip():
     key = Fernet.generate_key().decode()
     with SessionLocal() as db:

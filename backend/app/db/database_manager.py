@@ -115,7 +115,7 @@ class DatabaseManager:
         return model
 
     # ---------- saveSecureLog ----------
-    def save_secure_log(self, log: dict) -> DetectionResult:
+    def save_secure_log(self, log: dict) -> uuid.UUID:
         """
         บันทึกประวัติการสแกน 1 ครั้ง
         log = {
@@ -155,15 +155,19 @@ class DatabaseManager:
             detection_model = self.get_or_create_model(model.model_name(), "Multinomial Naive Bayes", model.metadata)
 
             result = DetectionResult(
+                # กำหนด id เองก่อน commit ผู้เรียกจะอ่าน result_id ได้โดยไม่ต้อง SELECT แถวนี้กลับมาอีกรอบ
+                # (หลัง commit SQLAlchemy ถือว่าค่าในออบเจกต์เก่าแล้ว แตะ attribute ใดก็ query ใหม่)
+                result_id=uuid.uuid4(),
                 phishing_probability=Decimal(str(round(log["probability"], 4))),
                 classification=log["classification"],
                 scan_time=datetime.now(timezone.utc),
                 email_id=email.email_id,
                 model_id=detection_model.model_id,
             )
+            result_id = result.result_id
             db.add(result)
             db.commit()
-            return result
+            return result_id
         except Exception:
             db.rollback()
             raise

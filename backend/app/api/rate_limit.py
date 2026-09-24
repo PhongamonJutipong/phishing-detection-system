@@ -9,6 +9,8 @@ instance แต่ละตัวจะนับแยกกัน เพดา�
 เมื่อถึงขั้นนั้นต้องย้ายตัวนับไปไว้ที่ Redis หรือทำที่ reverse proxy แทน
 """
 import hashlib
+import math
+import os
 import time
 from collections import deque
 
@@ -63,9 +65,15 @@ analyze_limiter = RateLimiter(
     max_clients=settings.rate_limit_max_clients,
 )
 
+# จำนวนโปรเซสของ uvicorn (ตั้งผ่าน WEB_CONCURRENCY ใน docker-compose.yml)
+_WORKERS = max(1, int(os.environ.get("WEB_CONCURRENCY", "1") or 1))
+
 # สมัคร/เข้าสู่ระบบใช้ตัวนับแยก และเพดานต่ำกว่ามาก เพราะเป็นเป้าของการสุ่มเดารหัสผ่าน
+# หารเพดานด้วยจำนวนโปรเซส: ตัวนับอยู่แยกกันในแต่ละโปรเซส ถ้าไม่หาร ผู้โจมตีที่เปิดหลาย connection
+# จะเดารหัสผ่านได้ AUTH_RATE_LIMIT x จำนวนโปรเซส ครั้งต่อนาที หารแล้วรวมทุกโปรเซสไม่เกินค่าที่ตั้ง
+# (ผู้ใช้ที่ต่อ connection เดิมตลอดจะเจอเพดานเข้มกว่าที่ตั้ง ซึ่งยอมรับได้สำหรับหน้า login)
 auth_limiter = RateLimiter(
-    limit=settings.auth_rate_limit_per_minute,
+    limit=math.ceil(settings.auth_rate_limit_per_minute / _WORKERS) if settings.auth_rate_limit_per_minute > 0 else 0,
     max_clients=settings.rate_limit_max_clients,
 )
 
