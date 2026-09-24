@@ -102,15 +102,23 @@ def train_language(lang: str) -> dict | None:
         print(f"[ข้าม {lang}] ไม่พบ {data_dir / 'train.csv'} — รัน preprocess.py ก่อน")
         return None
 
+    started = time.perf_counter()
+
+    def step(msg: str) -> None:
+        print(f"[{lang}] {time.perf_counter() - started:6.1f}s  {msg}")
+
+    step("โหลดข้อมูล")
     train_df = pd.read_csv(data_dir / "train.csv")
     test_df = pd.read_csv(data_dir / "test.csv")
     X_train_text, y_train = train_df["clean_text"].fillna(""), train_df["label"]
     X_test_text, y_test = test_df["clean_text"].fillna(""), test_df["label"]
 
+    step(f"สร้างคลังคำ TF-IDF จาก {len(X_train_text):,} แถว")
     vectorizer = build_vectorizer(len(X_train_text))
     X_train = vectorizer.fit_transform(X_train_text)
     X_test = vectorizer.transform(X_test_text)
 
+    step(f"คลังคำ {len(vectorizer.vocabulary_):,} คำ | เทรน Naive Bayes และวัดผลชุดทดสอบ {len(X_test_text):,} แถว")
     model = MultinomialNB(alpha=NB_ALPHA)
     t0 = time.perf_counter()
     model.fit(X_train, y_train)
@@ -135,12 +143,14 @@ def train_language(lang: str) -> dict | None:
     # เปลี่ยน random_state ทีก็เด้งได้หลายจุดเปอร์เซ็นต์ จึงวัดซ้ำด้วย k-fold
     # บนข้อมูลทั้งหมดแล้วรายงานค่าเฉลี่ยพร้อมส่วนเบี่ยงเบนมาตรฐานควบคู่กันไป
     # ค่านี้คือค่าที่ควรนำไปใช้รายงานผลตามบทที่ 3.4
+    step(f"cross-validation {CV_FOLDS} fold (ขั้นนี้นานที่สุด)")
     cv = cross_validate_metrics(
         pd.concat([X_train_text, X_test_text], ignore_index=True),
         pd.concat([y_train, y_test], ignore_index=True),
     )
     if cv:
         metrics.update(cv)
+    step("เสร็จ")
 
     print(f"\n=== [{lang}] Naive Bayes + TF-IDF ===")
     for k, v in metrics.items():
