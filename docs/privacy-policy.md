@@ -1,6 +1,6 @@
 # นโยบายความเป็นส่วนตัว — PhishMail
 
-**ปรับปรุงล่าสุด:** 22 กันยายน 2569
+**ปรับปรุงล่าสุด:** 24 กันยายน 2569 (ฉบับ `2026-09-24`)
 
 PhishMail เป็นส่วนขยาย Chrome ที่ตรวจจับอีเมลฟิชชิงขณะผู้ใช้เปิดอ่านอีเมลใน Gmail
 เอกสารนี้อธิบายว่าส่วนขยายอ่านข้อมูลอะไร ส่งไปที่ใด และเก็บอะไรไว้บ้าง
@@ -59,12 +59,27 @@ PhishMail เป็นส่วนขยาย Chrome ที่ตรวจจ�
 | `STORE_EMAIL_CONTENT=true` | เก็บหัวข้อและเนื้อหาโดย**เข้ารหัสด้วย Fernet (AES-128-CBC + HMAC)** ก่อนบันทึก |
 | `STORE_NLP_ARTIFACTS=true` | เก็บคำที่ตัดได้ ค่า TF-IDF และเวกเตอร์คุณลักษณะรายอีเมล เพื่อใช้ปรับปรุงโมเดล **คำเหล่านี้เก็บเป็นข้อความธรรมดา** ผู้ที่อ่านฐานข้อมูลได้จึงประกอบเนื้อหาอีเมลกลับได้ เปิดเฉพาะเมื่อทำวิจัยและได้รับความยินยอมแล้วเท่านั้น |
 
-**ข้อมูลที่ระบบไม่จัดเก็บ:** ที่อยู่ผู้ส่ง ที่อยู่ผู้รับ ไฟล์แนบ
-ชื่อบัญชีหรืออีเมลของผู้ใช้ และที่อยู่ IP
+**ข้อมูลที่ระบบไม่จัดเก็บจากการตรวจอีเมล:** ที่อยู่ผู้ส่ง ที่อยู่ผู้รับ ไฟล์แนบ
+ชื่อบัญชีหรืออีเมลของผู้ใช้ และที่อยู่ IP ผลการตรวจไม่ผูกกับบัญชีผู้ใช้ แม้ผู้ใช้จะเข้าสู่ระบบอยู่ก็ตาม
 
 ที่อยู่ผู้ส่งถูกส่งมาเพื่อใช้วิเคราะห์เท่านั้น **ไม่มีคอลัมน์สำหรับเก็บที่อยู่ผู้ส่งในฐานข้อมูล**
 
 ค่าเริ่มต้นคือบันทึกเฉพาะผลการตรวจโดยไม่เก็บเนื้อหาใด ๆ
+
+### 4.1 บัญชีผู้ใช้บนหน้าเว็บ (ไม่บังคับ)
+
+การตรวจอีเมลใช้ได้โดยไม่ต้องสมัครสมาชิก ผู้ที่เลือกสมัครต้องกดยอมรับนโยบายนี้ก่อน
+ระบบบันทึกฉบับของนโยบายที่ยอมรับและเวลาที่ยอมรับไว้เป็นหลักฐาน
+
+| ข้อมูล | วิธีจัดเก็บ |
+|---|---|
+| อีเมล | **เข้ารหัสด้วย Fernet** ก่อนบันทึก และเก็บ **HMAC-SHA256** ไว้ค้นหาตอนเข้าสู่ระบบ ฐานข้อมูลไม่มีอีเมลเป็นข้อความธรรมดา |
+| รหัสผ่าน | เก็บเฉพาะค่าแฮช **scrypt** ที่มี salt สุ่มต่อบัญชี ไม่มีผู้ใดดูรหัสผ่านจริงได้ |
+| ความยินยอม | ฉบับของนโยบายและเวลาที่ยอมรับ |
+| วันที่สมัคร | วันเวลาที่สร้างบัญชี |
+| การเข้าสู่ระบบ | เก็บเฉพาะค่าแฮช SHA-256 ของ token และวันหมดอายุ (12 ชั่วโมง หรือ 30 วันเมื่อเลือกจดจำ) ถูกลบเมื่อออกจากระบบหรือหมดอายุ |
+
+ระบบ**ไม่ขอ**ชื่อ เบอร์โทรศัพท์ หรือข้อมูลอื่นนอกเหนือจากนี้
 
 ## 5. ข้อมูลที่เก็บไว้ในเครื่องผู้ใช้
 
@@ -95,6 +110,9 @@ PhishMail เป็นส่วนขยาย Chrome ที่ตรวจจ�
 ข้อมูลถูกเก็บในฐานข้อมูลที่ผู้ดูแลระบบควบคุม ผู้ใช้สามารถ
 
 - หยุดการเก็บข้อมูลเพิ่มเติมได้ทันทีโดยกดรีเซ็ตความยินยอมหรือปิดการสแกน
+- ดูข้อมูลทั้งหมดที่ระบบเก็บเกี่ยวกับบัญชีได้ที่หน้า "บัญชีของฉัน" (`/account`)
+- ลบบัญชีได้เองที่หน้าเดียวกัน ข้อมูลบัญชีและการเข้าสู่ระบบทั้งหมดถูกลบทันที ไม่มีการเก็บสำเนา
+  การลบบัญชีถือเป็นการถอนความยินยอม
 - ขอให้ลบข้อมูลที่เกี่ยวข้องได้โดยติดต่อผู้ดูแลระบบตามช่องทางในข้อ 9
 
 ในการติดตั้งเพื่อการศึกษาซึ่งเซิร์ฟเวอร์ทำงานบนเครื่องผู้ใช้เอง
@@ -119,7 +137,7 @@ PhishMail เป็นส่วนขยาย Chrome ที่ตรวจจ�
 
 # Privacy Policy — PhishMail
 
-**Last updated:** 22 September 2026
+**Last updated:** 24 September 2026 (version `2026-09-24`)
 
 PhishMail is a Chrome extension that detects phishing emails while the user reads
 mail in Gmail. This document explains what the extension reads, where it sends
@@ -173,13 +191,29 @@ Operators can enable two additional levels of storage, and must inform users bef
 | `STORE_EMAIL_CONTENT=true` | Stores subject and body, **encrypted with Fernet (AES-128-CBC + HMAC)** before writing |
 | `STORE_NLP_ARTIFACTS=true` | Stores per-email tokens, TF-IDF values and feature vectors for model improvement. **These words are stored in plaintext**, so anyone with database read access can reconstruct the substance of the email. Enable only for research, with consent |
 
-**Not stored:** sender address, recipient address, attachments, the user's
-account name or email address, and IP addresses.
+**Not stored from scans:** sender address, recipient address, attachments, the user's
+account name or email address, and IP addresses. Scan results are never linked to a
+user account, even while the user is logged in.
 
 The sender address is transmitted for analysis only — **the database schema has
 no column for it**.
 
 The default configuration records only detection results and no content.
+
+### 4.1 Optional web accounts
+
+Emails can be checked without an account. Anyone who signs up must first accept
+this policy; the accepted version and time are recorded as proof of consent.
+
+| Data | How it is stored |
+|---|---|
+| Email | **Encrypted with Fernet** before writing, plus an **HMAC-SHA256** used for lookup at login. The database never holds the email in plain text |
+| Password | Only a **scrypt** hash with a random per-account salt. Nobody can read the actual password |
+| Consent | Policy version and time of acceptance |
+| Sign-up date | When the account was created |
+| Logins | Only a SHA-256 hash of the token and its expiry (12 hours, or 30 days with "keep me logged in"). Removed on logout or expiry |
+
+The system does **not** ask for a name, phone number, or anything else.
 
 ## 5. Data stored locally
 
@@ -203,6 +237,9 @@ automatically.
 
 Users can stop further collection immediately by resetting consent or disabling
 scanning, and may request deletion of related data via the contact below.
+Account holders can see everything stored about their account on the "My account"
+page (`/account`) and delete the account there themselves. Account data and all
+logins are removed immediately with no copies kept; deleting the account withdraws consent.
 
 In the educational deployment, where the server runs on the user's own machine,
 deleting the local database removes all stored data.

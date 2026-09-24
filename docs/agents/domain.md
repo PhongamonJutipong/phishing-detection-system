@@ -2,6 +2,15 @@
 
 How the engineering skills should consume this repo's domain documentation when exploring the codebase.
 
+> **หมายเหตุสำหรับโปรเจคนี้โดยเฉพาะ**
+>
+> เอกสารข้างล่างอธิบายธรรมเนียมทั่วไปที่ใช้ `CONTEXT.md` และ `docs/adr/`
+> **โปรเจคนี้ไม่ได้ใช้โครงสร้างนั้น** ไฟล์ทั้งสองไม่มีอยู่จริง
+>
+> ของจริงที่ต้องอ่านคือ
+> - [`CLAUDE.md`](../../CLAUDE.md) ที่ระดับ repo root — บริบท ข้อจำกัด และกับดักที่เคยเจอ
+> - [`docs/decisions.md`](../decisions.md) — เหตุผลเบื้องหลังการตัดสินใจพร้อมตัวเลขที่วัดได้
+
 ## Before exploring, read these
 
 - **`CONTEXT.md`** at the repo root, or

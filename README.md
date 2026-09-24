@@ -7,6 +7,9 @@ ER diagram + พจนานุกรมข้อมูล, การออก�
 >
 > อ่าน **[docs/SETUP.md](docs/SETUP.md)** — คู่มือติดตั้งตั้งแต่ต้นจนรันได้ พร้อมปัญหาที่เจอบ่อยและสิ่งที่ยังค้างอยู่
 >
+> และ **[docs/decisions.md](docs/decisions.md)** — บันทึกว่าทำไมระบบถึงเป็นแบบนี้ พร้อมตัวเลขที่ใช้ตัดสินใจ
+> อ่านก่อนจะเปลี่ยนอัลกอริทึม พารามิเตอร์ หรือค่าตั้งต้นด้านความเป็นส่วนตัว
+>
 > ติดตั้งและเริ่มระบบด้วยคำสั่งเดียวบน Windows:
 > ```
 > scripts\setup.bat
@@ -48,7 +51,7 @@ phishing-detection-system/
 │   └── src/app/
 │       ├── core/               # ApiService, I18nService (ไทย/อังกฤษ), ชนิดข้อมูลของ API
 │       ├── shared/             # แถบนำทาง ส่วนท้าย ไอคอน
-│       └── pages/              # home, scan, dashboard, login (lazy load ทุกหน้า)
+│       └── pages/              # home, scan, dashboard, login, register, account, privacy (lazy load ทุกหน้า)
 │
 ├── extension/                   # Chrome Extension (Manifest V3)
 │   ├── config.js                # Class Config
@@ -65,7 +68,9 @@ phishing-detection-system/
 │   └── survey_analysis.py       # ค่าเฉลี่ย, S.D., ร้อยละ, อันตรภาคชั้น + แปลผลตามตารางที่ 3.15
 │
 ├── scripts/setup.bat            # ติดตั้งและเริ่มระบบด้วยคำสั่งเดียว (เรียก setup.ps1)
-├── docs/                        # SETUP.md (คู่มือติดตั้ง), privacy-policy.md, chrome-web-store-listing.md
+├── docs/                        # SETUP.md (ติดตั้ง), decisions.md (เหตุผลเบื้องหลัง), privacy-policy.md
+│
+├── CLAUDE.md                    # บริบทสำหรับ AI agent (โหลดอัตโนมัติ) ข้อจำกัดและกับดักที่เคยเจอ
 │
 ├── pyproject.toml               # แหล่งข้อมูลเดียวของ dependencies + ตั้งค่า pytest + ประกาศแพ็กเกจ
 ├── .github/workflows/ci.yml     # CI/CD: test, build Docker image, สั่งเทรนโมเดลใหม่
@@ -114,8 +119,9 @@ pip install .                 # เฉพาะที่ระบบต้อง
 
 ทุกหน้าสลับภาษาไทย/อังกฤษได้ทั้งหมด รวมหัวข้อในตารางของหน้าภาพรวม
 
-หน้าอื่นในชุดเดียวกัน: `/` หน้าแรกแนะนำระบบ, `/dashboard` หน้าภาพรวมผู้ดูแล (แบบร่าง ใช้ข้อมูลตัวอย่าง),
-`/login` หน้าเข้าสู่ระบบ (แบบร่าง ไม่บังคับใช้งาน — ตรวจอีเมลได้โดยไม่ต้องเข้าสู่ระบบ)
+หน้าอื่นในชุดเดียวกัน: `/` หน้าแรกแนะนำระบบ, `/dashboard` หน้าภาพรวมผู้ดูแล (ข้อมูลจริงจาก `/api/v1/stats` กรอก `ADMIN_TOKEN` ก่อนดู),
+`/register` สมัครสมาชิก, `/login` เข้าสู่ระบบ, `/account` ดูข้อมูลและลบบัญชีได้เอง, `/privacy` นโยบายความเป็นส่วนตัว
+บัญชีเป็นทางเลือก ตรวจอีเมลได้โดยไม่ต้องเข้าสู่ระบบ และผลการตรวจไม่ผูกกับบัญชี
 
 ## การทำงานของระบบ (UC-01)
 
@@ -133,12 +139,17 @@ pip install .                 # เฉพาะที่ระบบต้อง
 | Method | Path | คำอธิบาย |
 |---|---|---|
 | GET | `/` | หน้าแรก (แนะนำระบบ) |
-| GET | `/scan` `/dashboard` `/login` | เส้นทางของ Angular — เซิร์ฟเวอร์คืน `index.html` ให้แล้วแอปจัดการเส้นทางเอง |
+| GET | `/scan` `/dashboard` `/login` `/register` `/account` `/privacy` | เส้นทางของ Angular — เซิร์ฟเวอร์คืน `index.html` ให้แล้วแอปจัดการเส้นทางเอง |
 | POST | `/api/v1/analyze` | body: `{subject, sender, body_content, email_id?, time_stamp?}` -> `risk_score, risk_percentage, risk_level, classification, language, highlights, indicators, ...` (503 ถ้าโมเดลยังไม่พร้อม) |
 | GET | `/api/v1/health` | สถานะโมเดลแต่ละภาษา + ฐานข้อมูล |
 | GET | `/api/v1/model-info` | metadata ของโมเดลที่ใช้งานอยู่ |
 | POST | `/api/v1/model/reload` | โหลดโมเดลรุ่นใหม่โดยไม่ต้องรีสตาร์ต (header `X-Admin-Token`) |
 | GET | `/api/v1/stats` | สถิติการสแกน (header `X-Admin-Token`) |
+| POST | `/api/v1/auth/register` | `{email, password, accept_privacy_policy: true}` -> `{token, expires_at, user}` (409 ถ้าอีเมลซ้ำ) |
+| POST | `/api/v1/auth/login` | `{email, password, remember?}` -> `{token, expires_at, user}` (401 ข้อความเดียวกันทั้งอีเมลไม่มีและรหัสผิด) |
+| POST | `/api/v1/auth/logout` | ยกเลิก token ที่เซิร์ฟเวอร์ (header `Authorization: Bearer <token>`) |
+| GET | `/api/v1/auth/me` | ข้อมูลทั้งหมดที่เก็บเกี่ยวกับบัญชี (Bearer) |
+| DELETE | `/api/v1/auth/me` | `{password}` ลบบัญชีถาวร (Bearer, 403 ถ้ารหัสผิด) |
 
 ## ขั้นตอนการใช้งาน
 
