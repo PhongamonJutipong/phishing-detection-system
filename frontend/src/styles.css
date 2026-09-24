@@ -166,6 +166,8 @@ svg { display: block; }
 .nav-actions { display: flex; align-items: center; gap: 18px; margin-left: auto; }
 .nav-actions .login { color: var(--muted); font-size: 14px; font-weight: 500; }
 .nav-actions .login:hover { color: var(--text); text-decoration: none; }
+/* ปุ่มและลิงก์ในแถบเมนูต้องอยู่บรรทัดเดียว ไม่งั้นบนมือถือ "ตรวจสอบอีเมล" ถูกบีบเป็น 3 บรรทัด */
+.nav-actions > * { white-space: nowrap; }
 
 /* ---------- sections ---------- */
 
@@ -387,8 +389,8 @@ svg { display: block; }
 .site-footer { padding: 36px 0; border-top: 1px solid var(--border); background: var(--surface-2); }
 .site-footer .container { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .site-footer .copyright { color: var(--dim); font-size: 13px; }
-.footer-links { display: flex; gap: 24px; margin-left: auto; }
-.footer-links a { color: var(--muted); font-size: 13px; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-left: auto; }
+.footer-links a { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .footer-links a:hover { color: var(--text); text-decoration: none; }
 
 /* ==========================================================================
@@ -444,7 +446,10 @@ body.app { display: flex; min-height: 100vh; }
   padding: 0 32px;
   border-bottom: 1px solid var(--border);
 }
-.app-header h1 { font-size: 22px; }
+.app-header h1 { font-size: 22px; white-space: nowrap; }
+/* ปุ่มกลับหน้าแรก ใช้เฉพาะบนจอที่ซ่อนแถบข้าง (ดู media query ด้านล่าง) */
+.header-home { display: none; color: var(--accent); }
+.header-home svg { width: 22px; height: 22px; }
 .search { position: relative; margin-left: auto; display: flex; align-items: center; }
 .search svg {
   position: absolute;
@@ -964,6 +969,14 @@ body.centered { display: grid; place-items: center; min-height: 100vh; padding: 
   .strip-logos { margin-left: 0; }
 }
 
+/* มือถือ: ชื่อเต็ม + ภาษา + เข้าสู่ระบบ + ปุ่มตรวจ ยาวราว 370 px เกินพื้นที่ของจอ 375 px
+   จึงเหลือแค่ไอคอนโล่ (ยังกดกลับหน้าแรกได้) และลดช่องว่างระหว่างเมนู */
+@media (max-width: 420px) {
+  .site-nav .container { gap: 12px; }
+  .nav-actions { gap: 14px; }
+  .site-nav .wordmark-text { display: none; }
+}
+
 @media (max-width: 760px) {
   .container { padding: 0 20px; }
   .section { padding: 72px 0; }
@@ -975,11 +988,19 @@ body.centered { display: grid; place-items: center; min-height: 100vh; padding: 
   .app-header h1 { font-size: 19px; }
   .search input { width: 160px; }
   .app-body { padding: 20px; }
-  .stats { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .stat { padding: 18px; }
   .form-row { flex-direction: column; align-items: stretch; }
   button.primary { width: 100%; }
+  /* ตารางในหน้าภาพรวมมี 4 คอลัมน์ ลดช่องว่างให้พอดีจอ ถ้าจอแคบมากยังเลื่อนแนวนอนได้ */
   .table-scroll { overflow-x: auto; }
-  table { min-width: 720px; }
+  thead th, tbody td { padding-left: 12px; padding-right: 12px; }
+  /* ชื่อโมเดลอย่าง NAIVE_BAYES_EN ไม่มีช่องว่างให้ตัดบรรทัด ทำให้ตารางโมเดลกว้างเกินจอ */
+  tbody td.mono { overflow-wrap: anywhere; }
+  .app-header { gap: 12px; }
+  .header-home { display: inline-flex; }
+  .header-actions { gap: 10px; }
+  .header-actions .updated { display: none; }
 }
 
 /* ==========================================================================

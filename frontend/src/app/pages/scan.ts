@@ -1,5 +1,7 @@
 import { DecimalPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { TimeoutError, timeout } from 'rxjs';
 
 import { ApiService } from '../core/api.service';
 import { I18nService } from '../core/i18n.service';
@@ -8,6 +10,8 @@ import { SiteFooter } from '../shared/site-footer';
 import { SiteNav } from '../shared/site-nav';
 
 const MAX_LENGTH = 100_000;
+// เผื่อเน็ตช้ามาก (Slow 3G ใช้ราว 2.5 วินาที) แต่ไม่ปล่อยให้ปุ่มหมุนค้างไม่มีที่สิ้นสุดเมื่อเน็ตหลุด
+const ANALYZE_TIMEOUT_MS = 45_000;
 
 /** ตัวอย่างอีเมลสำหรับกดสาธิต แยกตามภาษาที่เลือกอยู่ */
 const SAMPLE = {
@@ -144,6 +148,10 @@ export class Scan {
         th: 'พบการข่มขู่หรือแจ้งผลเสียหากไม่ดำเนินการ',
         en: 'A threat or warning of consequences if you do not act',
       },
+      suspicious_link: {
+        th: 'พบลิงก์หรือข้อความชวนให้คลิกลิงก์ ควรตรวจที่อยู่เว็บให้แน่ใจก่อนเปิด',
+        en: 'A link or a prompt to click one. Check the address carefully before opening it',
+      },
       no_known_terms: {
         th: 'ไม่พบคำที่อยู่ในคลังคำของโมเดลเลย ผลนี้จึงไม่ได้มาจากการวิเคราะห์เนื้อหา ควรตรวจสอบด้วยตนเอง',
         en: 'No words matched the model vocabulary, so this result is not based on content analysis. Please review manually.',
@@ -186,15 +194,18 @@ export class Scan {
     }
 
     this.loading.set(true);
-    this.api.analyze({ body_content: body }).subscribe({
+    this.api.analyze({ body_content: body }).pipe(timeout(ANALYZE_TIMEOUT_MS)).subscribe({
       next: (data) => {
         this.result.set(data);
         this.submittedText.set(body);
         this.loading.set(false);
-        this.checkHealth();
+        // ตอบกลับได้แปลว่าเซิร์ฟเวอร์ใช้งานได้ ไม่ต้องยิงเช็คสถานะซ้ำ (ประหยัด 1 รอบบนเน็ตช้า)
+        this.status.set('online');
       },
-      error: () => {
-        this.formError.set(this.t().errorNetwork);
+      error: (err: unknown) => {
+        const slow = err instanceof TimeoutError;
+        const limited = err instanceof HttpErrorResponse && err.status === 429;
+        this.formError.set(slow ? this.t().errorTimeout : limited ? this.t().errorTooMany : this.t().errorNetwork);
         this.loading.set(false);
         this.checkHealth();
       },

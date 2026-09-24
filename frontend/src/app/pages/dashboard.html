@@ -42,6 +42,7 @@
 
 <div class="app-main">
   <header class="app-header">
+    <a class="header-home" routerLink="/" [attr.aria-label]="t().backToSite"><app-shield-icon /></a>
     <h1>{{ t().dashTitle }}</h1>
     <div class="header-actions">
       @if (state() === 'ready' || state() === 'error') {

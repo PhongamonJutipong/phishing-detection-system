@@ -12,9 +12,9 @@ import { ShieldIcon } from './shield-icon';
   template: `
     <nav class="site-nav">
       <div class="container">
-        <a class="wordmark" routerLink="/">
+        <a class="wordmark" routerLink="/" [attr.aria-label]="t().brand">
           <app-shield-icon />
-          {{ t().brand }}
+          <span class="wordmark-text">{{ t().brand }}</span>
         </a>
 
         <div class="nav-links">

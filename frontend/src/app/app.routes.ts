@@ -1,20 +1,19 @@
 import { Routes } from '@angular/router';
 
+import { Home } from './pages/home';
+import { Scan } from './pages/scan';
+
 /**
- * เส้นทางของหน้าเว็บ ใช้ lazy loading ทุกหน้า
- * ผู้ใช้ที่เข้ามาหน้าแรกจึงไม่ต้องโหลดโค้ดของหน้าภาพรวมหรือหน้าเข้าสู่ระบบไปด้วย
+ * เส้นทางของหน้าเว็บ
+ *
+ * หน้าแรกกับหน้าตรวจอีเมลโหลดมาพร้อมไฟล์หลัก เพราะเป็นหน้าที่คนเข้ามาเป็นหน้าแรก
+ * ถ้าแยกเป็น lazy chunk เบราว์เซอร์ต้องรอไฟล์หลักเสร็จก่อนจึงรู้ว่าต้องโหลดอะไรต่อ
+ * วัดบน Slow 3G ได้ 2 รอบไป-กลับเพิ่ม (ราว 4 วินาที) เพื่อไฟล์รวมแค่ 12 KB ซึ่งไม่คุ้ม
+ * หน้าอื่นยังเป็น lazy loading ผู้ใช้ส่วนใหญ่ไม่ได้เปิด จึงไม่ต้องโหลดไปด้วย
  */
 export const routes: Routes = [
-  {
-    path: '',
-    loadComponent: () => import('./pages/home').then((m) => m.Home),
-    title: 'PhishMail',
-  },
-  {
-    path: 'scan',
-    loadComponent: () => import('./pages/scan').then((m) => m.Scan),
-    title: 'Scan an email · PhishMail',
-  },
+  { path: '', component: Home, title: 'PhishMail' },
+  { path: 'scan', component: Scan, title: 'Scan an email · PhishMail' },
   {
     path: 'dashboard',
     loadComponent: () => import('./pages/dashboard').then((m) => m.Dashboard),
