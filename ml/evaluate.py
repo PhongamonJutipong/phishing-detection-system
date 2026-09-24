@@ -52,7 +52,7 @@ def evaluate_language(lang: str) -> pd.DataFrame | None:
 
     train_df = pd.read_csv(data_dir / "train.csv")
     test_df = pd.read_csv(data_dir / "test.csv")
-    vectorizer = build_vectorizer()
+    vectorizer = build_vectorizer(len(train_df))  # ให้ min_df ตรงกับโมเดลที่ train.py สร้างจริง
     X_train = vectorizer.fit_transform(train_df["clean_text"].fillna(""))
     X_test = vectorizer.transform(test_df["clean_text"].fillna(""))
     y_train, y_test = train_df["label"], test_df["label"]

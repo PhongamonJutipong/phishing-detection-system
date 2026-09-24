@@ -36,6 +36,12 @@ def test_detect_language_ignores_urls():
     assert ratios["en"] == 0.0
 
 
+def test_detect_language_counts_thai_mixed_with_english_as_thai():
+    # อักษรละตินมากกว่า แต่เป็นประโยคภาษาไทยที่มีคำอังกฤษปน
+    assert detect_language("ระบบ TU แจ้งเตือน ให้ update password ผ่าน bit.ly/example_fake ด่วน") == "th"
+    assert detect_language("Your account has been suspended, verify now") == "en"
+
+
 def test_thai_custom_dictionary_keeps_phishing_terms_whole():
     import pytest
 

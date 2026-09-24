@@ -74,10 +74,17 @@ def script_ratios(text: str) -> dict[str, float]:
     return {"th": th / total, "en": en / total}
 
 
+# คนไทยเขียนไทยปนอังกฤษเป็นปกติ เช่น "ระบบแจ้งเตือน ให้ update password ด่วน" ซึ่งคำอังกฤษ
+# ยาวกว่าจึงมีตัวอักษรละตินมากกว่า แต่ข้อความภาษาอังกฤษแทบไม่มีอักษรไทยปน (ชุดข้อมูลอังกฤษ
+# 49,000 ฉบับไม่มีเลยสักฉบับ) จึงนับเป็นไทยเมื่อมีอักษรไทยถึงเกณฑ์ ไม่ต้องมากกว่าอังกฤษ
+# ใช้ค่าเดียวกับ min_language_ratio ใน backend/app/config.py เพื่อให้โมเดลไทยเทรนด้วย
+# ข้อความแบบเดียวกับที่จะได้รับตอนใช้งานจริง
+THAI_RATIO_THRESHOLD = 0.15
+
+
 def detect_language(text: str) -> str:
-    """ภาษาหลักของข้อความ: 'th' ถ้าตัวอักษรไทยมากกว่า ไม่เช่นนั้น 'en'"""
-    ratios = script_ratios(text)
-    return "th" if ratios["th"] > ratios["en"] else "en"
+    """ภาษาหลักของข้อความ: 'th' ถ้ามีตัวอักษรไทยถึง THAI_RATIO_THRESHOLD ไม่เช่นนั้น 'en'"""
+    return "th" if script_ratios(text)["th"] >= THAI_RATIO_THRESHOLD else "en"
 
 
 def remove_noise(text: str) -> str:
