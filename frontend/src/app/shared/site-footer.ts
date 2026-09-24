@@ -18,6 +18,7 @@ import { ShieldIcon } from './shield-icon';
         <div class="footer-links">
           <a routerLink="/scan">{{ t().navScan }}</a>
           <a routerLink="/dashboard">{{ t().navDashboard }}</a>
+          <a routerLink="/privacy">{{ t().navPrivacy }}</a>
           <a href="docs" target="_blank" rel="noopener">API</a>
         </div>
       </div>

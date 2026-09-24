@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy import delete, func, insert
+from sqlalchemy import case, delete, func, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -38,6 +38,11 @@ def get_cipher() -> Fernet:
     if _cipher is None:
         _cipher = _build_cipher(settings.encryption_key)
     return _cipher
+
+
+def _as_utc(value: datetime) -> datetime:
+    """SQLite คืนเวลาแบบไม่มี timezone เบราว์เซอร์จะตีความเป็นเวลาท้องถิ่น จึงใส่ UTC กำกับ"""
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
 class DatabaseManager:
@@ -270,9 +275,44 @@ class DatabaseManager:
         return {"deleted_emails": len(expired_ids), "remaining": remaining}
 
     # ---------- getFeedbackData ----------
-    def get_feedback_data(self) -> dict:
-        """ดึงข้อมูลสถิติการตรวจจับจากฐานข้อมูล สำหรับวิเคราะห์และประเมินประสิทธิภาพของโมเดล"""
+    def get_feedback_data(self, recent_limit: int = 20) -> dict:
+        """
+        ดึงข้อมูลสถิติการตรวจจับจากฐานข้อมูล สำหรับวิเคราะห์และประเมินประสิทธิภาพของโมเดล
+
+        recent_scans มีแค่เวลา ค่าความเสี่ยง และภาษา ไม่มีผู้ส่งหรือหัวข้อ
+        เพราะระบบไม่ได้เก็บข้อมูลเหล่านั้นไว้ตั้งแต่แรก (ดู privacy-policy.md ข้อ 4)
+        """
         db = self.db_connection
+        probability = DetectionResult.phishing_probability
+        level = case(
+            (probability >= settings.min_risk_threshold, "dangerous"),
+            (probability >= settings.suspicious_threshold, "suspicious"),
+            else_="safe",
+        )
+        # นับด้วย SUM(CASE ...) ไม่ใช้ GROUP BY ตาม CASE เพราะ PostgreSQL มองพารามิเตอร์
+        # ใน SELECT กับ GROUP BY เป็นคนละตัว แล้วฟ้องว่า "must appear in the GROUP BY clause"
+        counts = db.query(
+            *(func.coalesce(func.sum(case((level == name, 1), else_=0)), 0) for name in ("dangerous", "suspicious", "safe"))
+        ).one()
+        risk_levels = dict(zip(("dangerous", "suspicious", "safe"), (int(c) for c in counts)))
+        recent_scans = [
+            {
+                "scan_time": _as_utc(scan_time).isoformat() if scan_time else None,
+                "probability": float(prob) if prob is not None else None,
+                "classification": classification,
+                "risk_level": risk,
+                # model_name เป็นรูปแบบ naive_bayes_<ภาษา>
+                "language": (model_name or "").rsplit("_", 1)[-1] or None,
+            }
+            for scan_time, prob, classification, risk, model_name in (
+                db.query(DetectionResult.scan_time, probability, DetectionResult.classification, level,
+                         DetectionModel.model_name)
+                .join(DetectionModel, DetectionResult.model_id == DetectionModel.model_id)
+                .order_by(DetectionResult.scan_time.desc())
+                .limit(recent_limit)
+                .all()
+            )
+        ]
         total_emails = db.query(func.count(Email.email_id)).scalar() or 0
         total_scans = db.query(func.count(DetectionResult.result_id)).scalar() or 0
         by_class = dict(
@@ -294,5 +334,7 @@ class DatabaseManager:
             "total_emails": total_emails,
             "total_scans": total_scans,
             "scans_by_classification": by_class,
+            "risk_levels": risk_levels,
+            "recent_scans": recent_scans,
             "models": models,
         }

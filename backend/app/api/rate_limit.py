@@ -63,6 +63,12 @@ analyze_limiter = RateLimiter(
     max_clients=settings.rate_limit_max_clients,
 )
 
+# สมัคร/เข้าสู่ระบบใช้ตัวนับแยก และเพดานต่ำกว่ามาก เพราะเป็นเป้าของการสุ่มเดารหัสผ่าน
+auth_limiter = RateLimiter(
+    limit=settings.auth_rate_limit_per_minute,
+    max_clients=settings.rate_limit_max_clients,
+)
+
 
 def _client_key(request: Request) -> str:
     """
@@ -83,4 +89,14 @@ def rate_limit_analyze(request: Request) -> None:
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         detail="ส่งคำขอถี่เกินกำหนด กรุณารอสักครู่แล้วลองใหม่",
         headers={"Retry-After": str(analyze_limiter.window)},
+    )
+
+
+def rate_limit_auth(request: Request) -> None:
+    if auth_limiter.allow(_client_key(request)):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="พยายามเข้าสู่ระบบถี่เกินกำหนด กรุณารอสักครู่แล้วลองใหม่",
+        headers={"Retry-After": str(auth_limiter.window)},
     )

@@ -56,3 +56,54 @@ class EmailAnalyzeResponse(BaseModel):
 class ErrorResponse(BaseModel):
     detail: str
     code: str
+
+
+# ===== บัญชีผู้ใช้ =====
+
+class RegisterRequest(BaseModel):
+    email: str = Field(..., max_length=254)
+    password: str = Field(..., min_length=8, max_length=128)
+    # ต้องเป็น true เท่านั้น การสมัครคือการยินยอมให้เก็บข้อมูลบัญชี จึงต้องขอความยินยอมก่อนเสมอ
+    accept_privacy_policy: bool
+
+    @field_validator("email")
+    @classmethod
+    def email_must_be_valid(cls, value: str) -> str:
+        from app.services.auth_service import is_valid_email, normalize_email
+
+        value = normalize_email(value)
+        if not is_valid_email(value):
+            raise ValueError("รูปแบบอีเมลไม่ถูกต้อง")
+        return value
+
+    @field_validator("accept_privacy_policy")
+    @classmethod
+    def consent_must_be_given(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("ต้องยอมรับนโยบายความเป็นส่วนตัวก่อนสมัครสมาชิก")
+        return value
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., max_length=254)
+    password: str = Field(..., min_length=1, max_length=128)
+    remember: bool = False
+
+
+class DeleteAccountRequest(BaseModel):
+    # ขอรหัสผ่านซ้ำ กันคนอื่นที่หยิบเครื่องที่เข้าสู่ระบบค้างไว้มาลบบัญชี
+    password: str = Field(..., min_length=1, max_length=128)
+
+
+class UserProfile(BaseModel):
+    """ข้อมูลทั้งหมดที่ระบบเก็บเกี่ยวกับบัญชีนี้ (สิทธิ์ขอเข้าถึงข้อมูลของเจ้าของ)"""
+    email: Optional[str]
+    created_at: datetime
+    consent_version: str
+    consent_at: datetime
+
+
+class AuthResponse(BaseModel):
+    token: str
+    expires_at: datetime
+    user: UserProfile

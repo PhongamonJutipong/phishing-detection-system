@@ -25,5 +25,20 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/login').then((m) => m.Login),
     title: 'Log in · PhishMail',
   },
+  {
+    path: 'register',
+    loadComponent: () => import('./pages/register').then((m) => m.Register),
+    title: 'Sign up · PhishMail',
+  },
+  {
+    path: 'account',
+    loadComponent: () => import('./pages/account').then((m) => m.Account),
+    title: 'My account · PhishMail',
+  },
+  {
+    path: 'privacy',
+    loadComponent: () => import('./pages/privacy').then((m) => m.Privacy),
+    title: 'Privacy policy · PhishMail',
+  },
   { path: '**', redirectTo: '' },
 ];

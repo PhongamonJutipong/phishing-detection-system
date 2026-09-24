@@ -1,8 +1,8 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { AnalyzeRequest, AnalyzeResponse, HealthResponse } from './models';
+import { AnalyzeRequest, AnalyzeResponse, HealthResponse, StatsResponse } from './models';
 
 /**
  * เรียก API ของ backend
@@ -20,5 +20,11 @@ export class ApiService {
 
   health(): Observable<HealthResponse> {
     return this.http.get<HealthResponse>('api/v1/health');
+  }
+
+  stats(adminToken: string): Observable<StatsResponse> {
+    return this.http.get<StatsResponse>('api/v1/stats', {
+      headers: new HttpHeaders({ 'X-Admin-Token': adminToken }),
+    });
   }
 }

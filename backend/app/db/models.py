@@ -104,3 +104,47 @@ class FeatureVector(Base):
     email_id = Column(Uuid, ForeignKey("email.email_id"), nullable=False, index=True)
 
     email = relationship("Email", back_populates="features")
+
+
+# ---------------------------------------------------------------------------
+# บัญชีผู้ใช้ — เพิ่มภายหลัง ไม่อยู่ในพจนานุกรมข้อมูลบทที่ 3
+#
+# ผลการตรวจอีเมลข้างบนไม่ผูกกับบัญชีผู้ใช้โดยตั้งใจ ถ้าผูกไว้ ผู้ที่อ่านฐานข้อมูลได้
+# จะรู้ว่าใครได้รับอีเมลแบบไหน ซึ่งเกินกว่าที่ระบบต้องรู้เพื่อตรวจฟิชชิง
+# ---------------------------------------------------------------------------
+
+class AppUser(Base):
+    """
+    บัญชีผู้ใช้ เก็บเท่าที่จำเป็นต่อการเข้าสู่ระบบเท่านั้น (ไม่เก็บชื่อ เบอร์โทร หรือ IP)
+
+    ชื่อตารางเป็น app_user เพราะ user เป็นคำสงวนของ PostgreSQL
+    """
+    __tablename__ = "app_user"
+
+    user_id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    # HMAC-SHA256 ของอีเมล (ตัวพิมพ์เล็ก) ใช้ค้นหาตอนเข้าสู่ระบบโดยไม่ต้องเก็บอีเมลเป็นข้อความธรรมดา
+    email_hash = Column(String(64), nullable=False, unique=True, index=True)
+    # อีเมลที่เข้ารหัส Fernet ไว้แสดงให้เจ้าของบัญชีดู ถอดได้เฉพาะเซิร์ฟเวอร์ที่มี ENCRYPTION_KEY
+    email_encrypted = Column(Text, nullable=False)
+    # scrypt พร้อม salt สุ่มต่อบัญชี รูปแบบ scrypt$n$r$p$salt$hash
+    password_hash = Column(String(255), nullable=False)
+    # หลักฐานความยินยอม: ยอมรับนโยบายความเป็นส่วนตัวฉบับไหน เมื่อไร
+    consent_version = Column(String(20), nullable=False)
+    consent_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+
+
+class UserSession(Base):
+    """การเข้าสู่ระบบที่ยังใช้งานอยู่ ลบแถวทิ้งเมื่อออกจากระบบ หมดอายุ หรือลบบัญชี"""
+    __tablename__ = "user_session"
+
+    session_id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    # SHA-256 ของ token เก็บแค่ค่าแฮช ถ้าฐานข้อมูลรั่วก็นำไปสวมรอยเข้าสู่ระบบไม่ได้
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    user_id = Column(Uuid, ForeignKey("app_user.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+
+    user = relationship("AppUser", back_populates="sessions")

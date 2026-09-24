@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { AuthService } from '../core/auth.service';
 import { I18nService } from '../core/i18n.service';
 import { ShieldIcon } from './shield-icon';
 
@@ -26,7 +27,11 @@ import { ShieldIcon } from './shield-icon';
           <button type="button" class="link-btn lang-btn" (click)="i18n.toggle()">
             {{ t().langToggle }}
           </button>
-          <a class="login" routerLink="/login">{{ t().navLogin }}</a>
+          @if (auth.loggedIn()) {
+            <a class="login" routerLink="/account">{{ t().navAccount }}</a>
+          } @else {
+            <a class="login" routerLink="/login">{{ t().navLogin }}</a>
+          }
           <a class="btn btn-primary btn-sm" routerLink="/scan">{{ t().navScan }}</a>
         </div>
       </div>
@@ -44,5 +49,6 @@ import { ShieldIcon } from './shield-icon';
 })
 export class SiteNav {
   protected readonly i18n = inject(I18nService);
+  protected readonly auth = inject(AuthService);
   protected readonly t = this.i18n.t;
 }

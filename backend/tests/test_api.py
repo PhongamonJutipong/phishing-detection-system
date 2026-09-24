@@ -231,5 +231,14 @@ def test_admin_endpoints_require_token(client):
     resp = client.get("/api/v1/stats", headers={"X-Admin-Token": "test-admin-token"})
     assert resp.status_code == 200
     assert "total_scans" in resp.json()
+
+    # หน้าภาพรวมใช้ข้อมูลชุดนี้ ต้องมีระดับความเสี่ยงและรายการล่าสุด แต่ไม่มีเนื้อหาหรือผู้ส่ง
+    client.post("/api/v1/analyze", json=EN_PHISHING)
+    stats = client.get("/api/v1/stats", headers={"X-Admin-Token": "test-admin-token"}).json()
+    assert sum(stats["risk_levels"].values()) == stats["total_scans"] >= 1
+    recent = stats["recent_scans"][0]
+    assert set(recent) == {"scan_time", "probability", "classification", "risk_level", "language"}
+    assert recent["language"] == "en"
+    assert recent["scan_time"].endswith("+00:00")
     reload = client.post("/api/v1/model/reload", headers={"X-Admin-Token": "test-admin-token"})
     assert reload.status_code == 200

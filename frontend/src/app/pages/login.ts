@@ -1,14 +1,14 @@
 import { Component, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
-import { I18nService } from '../core/i18n.service';
+import { AuthService, authErrorText } from '../core/auth.service';
+import { I18nService, TextKey } from '../core/i18n.service';
 import { ShieldIcon } from '../shared/shield-icon';
 
 /**
- * หน้าเข้าสู่ระบบ — เป็นแบบร่างโดยตั้งใจ
+ * หน้าเข้าสู่ระบบ
  *
- * ฟอร์มไม่ส่งข้อมูลไปที่ใดทั้งสิ้น ไม่มีการเรียก API ไม่เก็บค่าลง storage
- * และการตรวจสอบอีเมลไม่ได้บังคับให้เข้าสู่ระบบ
+ * การตรวจสอบอีเมลไม่บังคับให้เข้าสู่ระบบ หน้านี้มีไว้สำหรับผู้ที่สมัครบัญชีแล้วเท่านั้น
  */
 @Component({
   selector: 'app-login',
@@ -21,29 +21,35 @@ import { ShieldIcon } from '../shared/shield-icon';
       </a>
 
       <div class="auth-card">
-        <span class="draft-tag">{{ t().loginDraft }}</span>
         <h1>{{ t().loginTitle }}</h1>
         <p class="auth-sub">{{ t().loginSub }}</p>
 
-        <form (submit)="$event.preventDefault(); notice.set(t().loginNotWired)" novalidate>
+        <form (submit)="$event.preventDefault(); submit()" novalidate>
           <div class="field">
             <label for="login-email">{{ t().loginEmail }}</label>
-            <input id="login-email" type="email" autocomplete="off" placeholder="you@example.com" />
+            <input id="login-email" type="email" autocomplete="email" placeholder="you@example.com"
+                   [value]="email()" (input)="email.set($any($event.target).value)" />
           </div>
           <div class="field">
             <label for="login-password">{{ t().loginPassword }}</label>
-            <input id="login-password" type="password" autocomplete="off" placeholder="••••••••" />
+            <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••"
+                   [value]="password()" (input)="password.set($any($event.target).value)" />
           </div>
           <div class="field-row">
             <label class="checkbox">
-              <input type="checkbox" />
+              <input type="checkbox" [checked]="remember()" (change)="remember.set($any($event.target).checked)" />
               <span>{{ t().loginRemember }}</span>
             </label>
-            <a class="forgot" routerLink="/login">{{ t().loginForgot }}</a>
           </div>
-          <button type="submit" class="primary">{{ t().loginTitle }}</button>
-          <p class="form-error" role="status">{{ notice() }}</p>
+          <button type="submit" class="primary" [disabled]="loading()">
+            {{ loading() ? t().loginWorking : t().loginTitle }}
+          </button>
+          <p class="form-error" role="alert">{{ error() ? t()[error()!] : '' }}</p>
         </form>
+
+        <p class="auth-switch">
+          {{ t().loginNoAccount }} <a routerLink="/register">{{ t().registerTitle }}</a>
+        </p>
 
         <div class="auth-divider"><span>{{ t().loginOr }}</span></div>
 
@@ -62,6 +68,31 @@ import { ShieldIcon } from '../shared/shield-icon';
   host: { class: 'centered-host' },
 })
 export class Login {
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
   protected readonly t = inject(I18nService).t;
-  protected readonly notice = signal('');
+
+  protected readonly email = signal('');
+  protected readonly password = signal('');
+  protected readonly remember = signal(false);
+  protected readonly loading = signal(false);
+  protected readonly error = signal<TextKey | null>(null);
+
+  protected submit(): void {
+    if (!this.email().trim() || !this.password()) {
+      this.error.set('authErrRequired');
+      return;
+    }
+    this.loading.set(true);
+    this.error.set(null);
+    this.auth.login(this.email().trim(), this.password(), this.remember()).subscribe({
+      next: () => this.router.navigateByUrl('/account'),
+      error: (err) => {
+        this.loading.set(false);
+        this.password.set('');
+        this.error.set(authErrorText(err));
+      },
+    });
+  }
 }
+

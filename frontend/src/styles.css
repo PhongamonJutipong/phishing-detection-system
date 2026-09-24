@@ -816,11 +816,21 @@ mark.hl {
   font-size: 13.5px;
 }
 
+.header-actions { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+.header-actions .updated { color: var(--dim); font-size: 12px; }
+.token-card { max-width: 520px; padding: 28px; }
+.token-card h2 { font-size: 19px; margin: 0 0 10px; }
+.token-card p { color: var(--muted); margin: 0 0 18px; }
+.token-card form { max-width: 360px; padding: 0; border: 0; background: none; border-radius: 0; }
+.card-empty { margin: 0; padding: 24px; color: var(--muted); }
+#recent, #models { scroll-margin-top: 80px; }
+.app-body > .card + .card { margin-top: 24px; }
+
 .stat .value .unit { font-family: var(--font-body); font-size: 16px; font-weight: 500; color: var(--muted); }
 td.lang { font-size: 13.5px; color: var(--muted); }
 
 /* ==========================================================================
-   หน้าเข้าสู่ระบบ (แบบร่าง)
+   หน้าเข้าสู่ระบบและสมัครสมาชิก
    ========================================================================== */
 
 body.centered { display: grid; place-items: center; min-height: 100vh; padding: 40px 20px; }
@@ -900,6 +910,45 @@ body.centered { display: grid; place-items: center; min-height: 100vh; padding: 
 .auth-foot { margin: 22px 0 0; font-size: 13.5px; }
 .auth-foot a { color: var(--muted); }
 .auth-foot a:hover { color: var(--accent); }
+
+.auth-switch { margin: 18px 0 0; color: var(--muted); font-size: 14px; }
+.checkbox.consent { align-items: flex-start; margin: 4px 0 20px; text-align: left; font-size: 13.5px; }
+.checkbox.consent input { margin-top: 3px; flex-shrink: 0; }
+
+/* ==========================================================================
+   หน้าบัญชีของฉัน และนโยบายความเป็นส่วนตัว
+   ========================================================================== */
+
+.account-page { padding: 64px 0 90px; }
+.container.narrow { max-width: 720px; }
+.account-page h1 { margin-bottom: 12px; }
+.account-page .lead { margin-bottom: 28px; }
+
+.account-card { padding: 28px; margin-bottom: 24px; }
+.account-card p { margin: 0 0 18px; color: var(--muted); }
+.account-card h2 { font-size: 19px; margin: 0 0 10px; }
+.account-card form { max-width: 360px; padding: 0; border: 0; background: none; border-radius: 0; }
+
+.account-data { display: grid; grid-template-columns: max-content 1fr; gap: 12px 24px; margin: 0 0 20px; }
+.account-data dt { color: var(--dim); font-size: 13.5px; }
+.account-data dd { margin: 0; overflow-wrap: anywhere; }
+.account-note { font-size: 13.5px; }
+
+.danger-zone { border-color: rgba(242, 84, 91, .35); }
+.btn-danger { background: var(--danger); color: #fff; border: 0; }
+.btn-danger:hover { filter: brightness(1.08); }
+.btn-danger:disabled { background: var(--border-strong); color: var(--dim); cursor: not-allowed; filter: none; }
+
+.policy-version { color: var(--dim); margin: 0 0 16px; }
+.policy-section { margin: 32px 0 0; }
+.policy-section h2 { font-size: 19px; margin: 0 0 12px; }
+.policy-section ul { margin: 0; padding-left: 20px; color: var(--muted); }
+.policy-section li { margin-bottom: 8px; }
+
+@media (max-width: 560px) {
+  .account-data { grid-template-columns: 1fr; gap: 4px; }
+  .account-data dd { margin-bottom: 12px; }
+}
 
 /* ==========================================================================
    Responsive

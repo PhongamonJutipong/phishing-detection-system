@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.auth_routes import router as auth_router
 from app.api.routes import router
 from app.config import settings
 from app.core.logger import logger
@@ -101,6 +102,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 
 app.include_router(router)
+app.include_router(auth_router)
 
 
 @app.get("/api")

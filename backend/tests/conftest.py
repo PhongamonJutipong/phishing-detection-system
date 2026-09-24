@@ -87,13 +87,14 @@ def client(registry):
     from app.main import app
     from app.ml.model_registry import get_model_registry
 
-    from app.api.rate_limit import analyze_limiter
+    from app.api.rate_limit import analyze_limiter, auth_limiter
 
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     # ตัวนับ rate limit เป็น singleton ระดับโมดูล ถ้าไม่ล้างจะนับสะสมข้ามเทสต์
     # แล้วเทสต์ท้าย ๆ จะเริ่มได้ 429 เมื่อจำนวนเทสต์เพิ่มขึ้นในอนาคต
     analyze_limiter.reset()
+    auth_limiter.reset()
     app.dependency_overrides[get_model_registry] = lambda: registry
     with TestClient(app) as test_client:
         yield test_client
