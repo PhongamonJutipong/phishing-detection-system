@@ -57,7 +57,7 @@ FastAPI + PostgreSQL (`backend/`), หน้าเว็บ Angular (`frontend/`
 
 ตารางเทียบ 5 อัลกอริทึมตามบทที่ 3.3.3 อยู่ที่ `ml/results/algorithm_comparison_{en,th}.csv`
 
-เทสต์ปัจจุบัน **44 ข้อ** ต้องผ่านทั้งหมดก่อน commit
+เทสต์ปัจจุบัน **47 ข้อ** ต้องผ่านทั้งหมดก่อน commit
 
 ---
 
@@ -89,6 +89,10 @@ FastAPI + PostgreSQL (`backend/`), หน้าเว็บ Angular (`frontend/`
 ครั้งล่าสุด `\r` ใน `ml\results` ถูกแปลงเป็นขึ้นบรรทัดใหม่ตอนแก้ไฟล์รอบถัดไป สแกนหาอักขระควบคุมอย่างเดียวจึงไม่เจอ
 ต้องค้นด้วย `grep` หาข้อความ path ที่ตั้งใจเขียนว่ายังอยู่ครบ
 
+**ห้ามเรียก `vectorizer.get_feature_names_out()` ในเส้นทางของคำขอ** โมเดลอังกฤษมี 670,000 คำ
+เรียกครั้งหนึ่งใช้ 353 ms เคยทำให้ระบบรับได้แค่ 2–3 คำขอต่อวินาที ใช้ `PhishingModel.feature_names`
+ที่เตรียมไว้ตอนโหลดแทน (ผลวัดอยู่ใน [docs/decisions.md](docs/decisions.md) ข้อ 13)
+
 **ทดสอบ API ด้วยข้อความไทยผ่าน `curl` ใน bash ไม่ได้** shell ทำ encoding เพี้ยน
 จนภาษาไทยถูกตรวจเป็น `en` ให้ยิงผ่าน Python + `json.dumps(...).encode('utf-8')` แทน
 
@@ -108,7 +112,7 @@ extension/              Chrome Extension MV3
 
 ```bash
 pip install -e ".[ml,dev]"          # ติดตั้งครบสำหรับพัฒนา
-python -m pytest                    # 44 ข้อ ต้องผ่านหมด
+python -m pytest                    # 47 ข้อ ต้องผ่านหมด
 scripts\train.bat                   # เทรนใหม่จากข้อมูลที่ preprocess ไว้แล้ว แสดงความคืบหน้า + เก็บ log
 cd frontend && npm run build        # ผลลัพธ์ไป backend/app/web
 docker compose up -d --build        # ทั้งระบบ
@@ -142,7 +146,8 @@ registry สาธารณะ (npm / PyPI / Docker Hub) เท่านั้�
    ผู้ใช้จะหามาให้เมื่อขอ
 2. ระบบบัญชี (`app_user`, `user_session`) ยังไม่มีการยืนยันอีเมลและลืมรหัสผ่าน
    และ**สองตารางนี้ไม่อยู่ในพจนานุกรมข้อมูลบทที่ 3** ถ้าจะใส่ในเล่มต้องเพิ่มเอง
-3. rate limit นับในโปรเซสเดียว ถ้าขยายหลาย worker ต้องย้ายไป Redis
+3. rate limit นับแยกต่อโปรเซส (ตอนนี้ 4 โปรเซส) login/สมัครหารเพดานด้วยจำนวนโปรเซสแล้ว
+   แต่ `/analyze` ยังเป็นได้ถึง 60 x 4 ครั้งต่อนาทีต่อ IP ถ้าต้องการเพดานรวมที่แม่นยำต้องย้ายไป Redis
 
 ---
 
