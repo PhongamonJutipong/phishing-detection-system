@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     # protected_namespaces=() ปิด warning ของ pydantic เรื่อง field ขึ้นต้นด้วย "model_" (model_dir เป็นค่าของเราเอง)
     model_config = SettingsConfigDict(env_file=".env", protected_namespaces=())
 
-    database_url: str = "postgresql://phishing_user:phishing_pass@localhost:5432/phishing_db"
+    # 5433 คือพอร์ตที่คอนเทนเนอร์ PostgreSQL เปิดไว้ฝั่งเครื่อง (ดู docker-compose.yml)
+    # ใช้ 127.0.0.1 ไม่ใช่ localhost เพราะบน Windows localhost จะลอง IPv6 ก่อนแล้วถอยมา IPv4
+    database_url: str = "postgresql://phishing_user:phishing_pass@127.0.0.1:5433/phishing_db"
     # จำนวน connection ต่อ 1 โปรเซส (ค่าเริ่มต้นของ SQLAlchemy คือ 5 + 10)
     # รวมทุกโปรเซสต้องไม่เกิน max_connections ของ PostgreSQL (ค่าเริ่มต้น 100)
     # เช่น WEB_CONCURRENCY=4 x (10 + 5) = 60

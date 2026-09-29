@@ -238,7 +238,7 @@ WEB_CONCURRENCY=2 docker compose up -d      # เครื่องแรมน�
 
 ```
 phishing_backend    Up (healthy)   0.0.0.0:8000->8000/tcp
-phishing_postgres   Up (healthy)   0.0.0.0:5432->5432/tcp
+phishing_postgres   Up (healthy)   0.0.0.0:5433->5432/tcp
 ```
 
 เปิดใช้งานได้ที่
@@ -296,8 +296,8 @@ cd backend
 > ถ้าสั่งจากโฟลเดอร์โปรเจคชั้นนอก ระบบจะหา `.env` ไม่เจอแล้ว **กุญแจเข้ารหัสจะกลายเป็นค่าว่างโดยไม่มีข้อความเตือนชัดเจน**
 > แต่ `DATABASE_URL` จะยังใช้ค่า default ที่ชี้ Postgres ได้ ทำให้ดูเหมือนทำงานปกติ หาสาเหตุยากมาก
 
-แต่ตอนรันแบบ dev นี้ `DATABASE_URL` ใน `backend/.env` ต้องชี้ `localhost` ไม่ใช่ `postgres`
-(ชื่อ `postgres` ใช้ได้เฉพาะภายในเครือข่ายของ Docker)
+แต่ตอนรันแบบ dev นี้ `DATABASE_URL` ใน `backend/.env` ต้องชี้ `127.0.0.1:5433` ไม่ใช่ `postgres:5432`
+(ชื่อ `postgres` ใช้ได้เฉพาะภายในเครือข่ายของ Docker ส่วน `5433` คือพอร์ตที่คอนเทนเนอร์เปิดไว้ฝั่งเครื่อง)
 
 ### แก้หน้าเว็บ
 
@@ -417,6 +417,43 @@ Docker Desktop ยังไม่ได้เปิด เปิดโปรแ�
 ### backend ขึ้นแล้วแต่ `/api/v1/health` ตอบว่าโมเดลไม่พร้อม
 
 ยังไม่ได้เทรนโมเดล กลับไปทำขั้นตอนเทรนโมเดล แล้วสั่ง `docker compose restart backend`
+
+### ต่อฐานข้อมูลด้วย DBeaver/pgAdmin แล้วขึ้น `password authentication failed`
+
+อาการนี้มักไม่ได้แปลว่ารหัสผ่านผิด แต่แปลว่า**ต่อไปผิดเซิร์ฟเวอร์**
+
+ถ้าเครื่องมี PostgreSQL ติดตั้งบน Windows อยู่แล้ว มันจะจับพอร์ต 5432 ไว้ก่อน
+Docker จะเอาพอร์ตนั้นไม่ได้แต่**ไม่ฟ้อง error** และ `docker compose ps` ยังแสดง mapping ตามปกติ
+คำขอทุกอันจึงไปโผล่ที่ PostgreSQL ตัวนั้นซึ่งไม่มี role ชื่อ `phishing_user`
+และ PostgreSQL ตอบข้อความเดียวกันทั้งกรณีรหัสผิดและกรณีไม่มี role นั้น (กันการเดาชื่อผู้ใช้)
+
+ด้วยเหตุนี้คอนเทนเนอร์จึงเปิดพอร์ต **5433** ฝั่งเครื่อง ไม่ใช่ 5432 ดูว่าใครถือพอร์ตอยู่ได้ด้วย
+
+```powershell
+Get-NetTCPConnection -LocalPort 5432,5433 -State Listen |
+  ForEach-Object { "{0} pid={1} {2}" -f $_.LocalAddress, $_.OwningProcess, (Get-Process -Id $_.OwningProcess).ProcessName }
+```
+
+แยกให้ขาดว่าเป็นปัญหารหัสผ่านหรือปัญหาพอร์ต ด้วยการทดสอบจากในคอนเทนเนอร์ผ่าน TCP
+(ถ้าใช้ `psql -U` เฉย ๆ จะต่อผ่าน unix socket ซึ่ง image ตั้ง `trust` ไว้ จึงไม่ได้ตรวจรหัสผ่านเลย)
+
+```powershell
+docker exec phishing_postgres psql "postgresql://phishing_user:phishing_pass@127.0.0.1:5432/phishing_db" -c "select 1"
+```
+
+ผ่าน = รหัสผ่านถูก ปัญหาอยู่ที่พอร์ตฝั่งเครื่อง
+
+ค่าที่ใช้กรอกใน DBeaver
+
+| ช่อง | ค่า |
+|---|---|
+| Host | `127.0.0.1` |
+| Port | `5433` |
+| Database | `phishing_db` |
+| Username | `phishing_user` |
+| Password | ค่า `POSTGRES_PASSWORD` (ค่าเริ่มต้น `phishing_pass`) |
+
+ถ้าอยากใช้พอร์ตอื่น ตั้ง `POSTGRES_HOST_PORT` ก่อนสั่ง `docker compose up -d`
 
 ### ระบบช้าประมาณ 2 วินาทีทุกคำขอบน Windows
 
