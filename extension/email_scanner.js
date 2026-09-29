@@ -1,19 +1,17 @@
 /**
  * Class EmailScanner (แผนภาพคลาส รูปที่ 3.2, UC-03 Scan Email Content)
  *
- * หมายเหตุ: Gmail เป็น SPA ที่เปลี่ยน DOM บ่อยและ class name อาจเปลี่ยนไปตามเวอร์ชัน
- * ควรตรวจสอบ SELECTORS เป็นระยะเมื่อ Gmail อัปเดต UI
+ * ตรรกะการเฝ้าดู DOM เหมือนกันทุกผู้ให้บริการ ส่วนที่ต่างกัน (selector, การอ่านรหัสข้อความ)
+ * อยู่ในตารางผู้ให้บริการที่ providers.js — เพิ่มเจ้าใหม่ให้แก้ที่ไฟล์นั้น ไม่ใช่ไฟล์นี้
+ *
+ * หมายเหตุ: หน้าอีเมลเป็น SPA ที่เปลี่ยน DOM บ่อยและ class name เปลี่ยนไปตามเวอร์ชัน
+ * ควรตรวจสอบ selector ในตารางเป็นระยะเมื่อผู้ให้บริการอัปเดต UI
  */
-const SELECTORS = {
-  subject: "h2.hP",
-  body: "div.a3s",
-  sender: "span.gD",
-  message: "div.adn",
-};
-
 class EmailScanner {
-  constructor(ui) {
+  constructor(ui, provider) {
     this.ui = ui;
+    // ไม่รู้จักโฮสต์นี้ = null แล้ว scanDOM() จะไม่เริ่มเฝ้าดูเลย
+    this.provider = provider !== undefined ? provider : Providers.forHost();
     this.observer = null;
     this.lastKey = null;
     this.debounceTimer = null;
@@ -24,6 +22,10 @@ class EmailScanner {
   /** scanDOM(): ตรวจจับการเปลี่ยนแปลงของโครงสร้างในหน้าอีเมล เพื่อหาตำแหน่งของเนื้อหาอีเมล */
   scanDOM() {
     if (this.observer) return;
+    if (!this.provider) {
+      Logger.logInfo("ไม่รองรับผู้ให้บริการอีเมลของหน้านี้");
+      return;
+    }
     this.observer = new MutationObserver((mutations) => {
       // ไม่สนใจการเปลี่ยนแปลงที่ส่วนขยายสร้างเอง (ป้าย/ไฮไลต์/หน้าต่าง)
       const external = mutations.some((m) => !(m.target.closest && m.target.closest(".pd-badge, .pd-overlay, mark.pd-highlight")));
@@ -58,23 +60,26 @@ class EmailScanner {
 
   /** fetchEmailBody(): นำข้อความดิบออกจาก DOM และสร้าง Object Email */
   fetchEmailBody() {
-    const bodies = [...document.querySelectorAll(SELECTORS.body)].filter(
+    const provider = this.provider;
+    if (!provider) return null;
+    const selectors = provider.selectors;
+
+    const bodies = queryAll(document, selectors.body).filter(
       (node) => node.offsetParent !== null && node.innerText.trim()
     );
     if (!bodies.length) return null;
 
     // เปิด thread ที่มีหลายข้อความ: วิเคราะห์ข้อความล่าสุดที่กางอยู่
     const bodyEl = bodies[bodies.length - 1];
-    const messageEl = bodyEl.closest(SELECTORS.message) || document;
-    const subjectEl = document.querySelector(SELECTORS.subject);
-    const senderEl = messageEl.querySelector(SELECTORS.sender) || document.querySelector(SELECTORS.sender);
-    const idHolder = bodyEl.closest("[data-message-id], [data-legacy-message-id]");
+    const messageEl = closestAny(bodyEl, selectors.message) || document;
+    const subjectEl = queryFirst(document, selectors.subject);
+    const senderEl = queryFirst(messageEl, selectors.sender) || queryFirst(document, selectors.sender);
 
     this.currentBodyEl = bodyEl;
     return new Email({
-      emailId: idHolder ? idHolder.getAttribute("data-message-id") || idHolder.getAttribute("data-legacy-message-id") : null,
+      emailId: provider.emailId(bodyEl),
       subject: subjectEl ? subjectEl.innerText.trim() : "",
-      sender: senderEl ? senderEl.getAttribute("email") || senderEl.innerText.trim() : null,
+      sender: senderEl ? provider.senderAddress(senderEl) : null,
       bodyContent: bodyEl.innerText.trim(),
       timeStamp: new Date(),
     });
@@ -103,7 +108,7 @@ class EmailScanner {
       await this.ui.showResult(response.data, bodyEl);
     } else {
       Logger.logError("วิเคราะห์อีเมลไม่สำเร็จ", response);
-      // คง lastKey ไว้ เพื่อไม่ให้ยิง request ซ้ำทุกครั้งที่ Gmail เปลี่ยน DOM — ลองใหม่เมื่อผู้ใช้กด "ลองใหม่"
+      // คง lastKey ไว้ เพื่อไม่ให้ยิง request ซ้ำทุกครั้งที่หน้าเว็บเปลี่ยน DOM — ลองใหม่เมื่อผู้ใช้กด "ลองใหม่"
       this.ui.showError(response ? response.code : "SERVER_ERROR");
     }
   }

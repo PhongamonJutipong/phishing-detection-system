@@ -148,6 +148,37 @@ registry สาธารณะ (npm / PyPI / Docker Hub) เท่านั้�
    และ**สองตารางนี้ไม่อยู่ในพจนานุกรมข้อมูลบทที่ 3** ถ้าจะใส่ในเล่มต้องเพิ่มเอง
 3. rate limit นับแยกต่อโปรเซส (ตอนนี้ 4 โปรเซส) login/สมัครหารเพดานด้วยจำนวนโปรเซสแล้ว
    แต่ `/analyze` ยังเป็นได้ถึง 60 x 4 ครั้งต่อนาทีต่อ IP ถ้าต้องการเพดานรวมที่แม่นยำต้องย้ายไป Redis
+4. **ขยายส่วนขยายให้รองรับผู้ให้บริการอีเมลอื่นนอกจาก Gmail** (เริ่ม 2026-09-29 ขอบเขตรอบนี้คือ Outlook Web เจ้าเดียว)
+
+   ฝั่ง backend ไม่ต้องแก้ `/api/v1/analyze` รับข้อความล้วนอยู่แล้ว
+   **CORS ไม่เกี่ยว** — `email_scanner.js` ส่งผ่าน `chrome.runtime.sendMessage` แล้ว `background.js`
+   เป็นคนยิง `fetch` คำขอจึงออกจาก service worker ที่ origin เป็น `chrome-extension://`
+   ซึ่ง `chrome-extension://*` ใน `CORS_ORIGINS` ครอบไว้แล้ว รายการ `https://mail.google.com`
+   ในค่านั้นเป็นของตกค้าง ไม่ได้ถูกใช้
+
+   **ทำไปแล้ว** (ยังไม่ commit)
+   - เพิ่ม `extension/providers.js` — ตาราง `PROVIDERS` แยก selector ต่อผู้ให้บริการ
+     เลือกด้วย `Providers.forHost()` แต่ละช่องรับเป็นอาร์เรย์ได้ ไล่ใช้ตัวแรกที่เจอ
+   - `extension/email_scanner.js` เลิกใช้ `SELECTORS` ที่ตรึงกับ Gmail หันไปใช้ adapter
+     ไม่รู้จักโฮสต์ = `provider` เป็น null แล้ว `scanDOM()` ไม่เริ่มเฝ้าดู
+   - `manifest.json` เพิ่มโดเมน Outlook 3 โดเมน + โหลด `providers.js`
+   - `scripts/selector_probe.js` สคริปต์สำรวจ selector ไว้วางใน DevTools console
+
+   **ยังไม่ได้ทำ**
+   - **selector ของ Outlook ใน `providers.js` ยังไม่ได้ยืนยันกับหน้าจริง** เป็นเพียงตัวเลือกตั้งต้น
+     ที่อิง role/aria ต้องรัน `scripts/selector_probe.js` บนหน้า Outlook จริงแล้วนำผลมาแก้
+   - ข้อความผู้ใช้ **ต้องแก้ทั้งไทยและอังกฤษ**: `extension/popup.js`,
+     `frontend/src/app/core/i18n.service.ts` (4 จุด)
+   - เอกสาร: `README.md` (4 จุด), `docs/chrome-web-store-listing.md` (8 จุด),
+     `docs/SETUP.md` (3 จุด), `docs/privacy-policy.md` (2 จุด)
+   - `backend/app/schemas.py` คำอธิบาย `email_id` ที่เขียนว่า "(จาก Gmail)"
+   - **แก้ `docs/privacy-policy.md` เมื่อไร ต้องบั๊มเลขฉบับให้ตรงกันทั้ง `privacy_policy_version`
+     ใน `backend/app/config.py` และ `POLICY_VERSION` ใน `frontend/src/app/pages/privacy.ts`** ตามกฎข้อ 3
+     ยังไม่ควรบั๊มจนกว่า Outlook จะยืนยันว่าใช้ได้จริง จะได้ไม่ต้องบั๊มสองรอบ
+
+   **เทสต์**: `pytest` ไม่ครอบคลุม `extension/` เลย การที่ 47 ข้อผ่านจึงไม่ได้แปลว่าส่วนขยายไม่พัง
+   ตรวจด้วย `node --check` และฮาร์เนส jsdom (jsdom 28 ติดมากับ `frontend/node_modules` อยู่แล้ว)
+   ถ้าจะเก็บฮาร์เนสไว้ถาวรต้องตัดสินใจเรื่องที่วางไฟล์กับวิธีรันก่อน ยังไม่ได้ทำ
 
 ---
 
