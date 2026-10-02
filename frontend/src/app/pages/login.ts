@@ -3,6 +3,7 @@ import { Router, RouterLink } from '@angular/router';
 
 import { AuthService, authErrorText } from '../core/auth.service';
 import { I18nService, TextKey } from '../core/i18n.service';
+import { GoogleSignIn } from '../shared/google-sign-in';
 import { ShieldIcon } from '../shared/shield-icon';
 
 /**
@@ -12,7 +13,7 @@ import { ShieldIcon } from '../shared/shield-icon';
  */
 @Component({
   selector: 'app-login',
-  imports: [RouterLink, ShieldIcon],
+  imports: [RouterLink, ShieldIcon, GoogleSignIn],
   template: `
     <main class="auth">
       <a class="wordmark auth-brand" routerLink="/">
@@ -53,6 +54,8 @@ import { ShieldIcon } from '../shared/shield-icon';
 
         <div class="auth-divider"><span>{{ t().loginOr }}</span></div>
 
+        <app-google-sign-in [remember]="remember()" (signedIn)="afterSignIn()" />
+
         <a class="btn btn-ghost auth-skip" routerLink="/scan">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
                stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -77,6 +80,10 @@ export class Login {
   protected readonly remember = signal(false);
   protected readonly loading = signal(false);
   protected readonly error = signal<TextKey | null>(null);
+
+  protected afterSignIn(): void {
+    this.router.navigateByUrl('/account');
+  }
 
   protected submit(): void {
     if (!this.email().trim() || !this.password()) {

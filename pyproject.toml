@@ -19,6 +19,10 @@ dependencies = [
   "pydantic-settings==2.3.1",
   "cryptography==42.0.8",
   "python-dotenv==1.0.1",
+  # ตรวจลายเซ็นของ ID token จาก Google (เข้าสู่ระบบด้วยบัญชี Google)
+  # ต้องออกเน็ตได้ตอนทำงานเพื่อดึง public key ของ Google มาแคช
+  # ถ้าไม่ตั้ง GOOGLE_CLIENT_ID ระบบจะปิดช่องทางนี้และไม่เรียกใช้ library นี้เลย
+  "google-auth==2.59.1",
   # ใช้ร่วมกับ ml/ — เวอร์ชันต้องตรงกัน ไม่งั้นโหลดไฟล์โมเดลที่เทรนไว้ไม่ได้
   "scikit-learn==1.5.0",
   "joblib==1.4.2",

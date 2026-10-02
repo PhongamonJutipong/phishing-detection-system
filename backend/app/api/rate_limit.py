@@ -7,8 +7,13 @@ POST /analyze ไม่มีการยืนยันตัวตน ใค�
 ข้อจำกัด: ตัวนับเก็บในหน่วยความจำของโปรเซสเดียว ถ้าขยายเป็นหลาย worker หรือหลาย
 instance แต่ละตัวจะนับแยกกัน เพดานจริงจะกลายเป็น limit x จำนวนโปรเซส
 เมื่อถึงขั้นนั้นต้องย้ายตัวนับไปไว้ที่ Redis หรือทำที่ reverse proxy แทน
+
+เมื่อมีตัวคั่น (reverse proxy, Cloudflare Tunnel) ต้องตั้ง TRUSTED_PROXIES ด้วย
+ไม่งั้นคู่สนทนาจะเป็นตัวคั่นเสมอ ผู้ใช้ทุกคนไปรวมอยู่ในตัวนับถังเดียวกัน
+แล้วคนเดียวยิงจนเต็มเพดานทำให้คนอื่นใช้ไม่ได้ทั้งหมด ดู _client_ip()
 """
 import hashlib
+import ipaddress
 import math
 import os
 import time
@@ -78,6 +83,59 @@ auth_limiter = RateLimiter(
 )
 
 
+def _parse_trusted_proxies(raw: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """แปลงรายการ IP/CIDR ที่เชื่อถือได้ ข้ามค่าที่พาร์สไม่ผ่านแทนที่จะทำให้ระบบขึ้นไม่ได้"""
+    networks = []
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(item, strict=False))
+        except ValueError:
+            # ค่าผิดรูปแบบ = ไม่เชื่อ ซึ่งปลอดภัยกว่าการเดาว่าผู้ตั้งหมายถึงอะไร
+            continue
+    return networks
+
+
+_TRUSTED_PROXIES = _parse_trusted_proxies(settings.trusted_proxies)
+
+
+def _is_trusted_proxy(host: str) -> bool:
+    if not _TRUSTED_PROXIES:
+        return False
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return any(addr in net for net in _TRUSTED_PROXIES)
+
+
+def _client_ip(request: Request) -> str:
+    """
+    IP ของผู้ใช้จริง
+
+    ค่าตั้งต้นคือ IP ของคู่สนทนาโดยตรง ซึ่งปลอมไม่ได้เพราะต้องทำ TCP handshake สำเร็จ
+    จะหันไปอ่าน header ก็เฉพาะเมื่อคู่สนทนาอยู่ในรายการ trusted_proxies เท่านั้น
+    ถ้าเชื่อ header จากใครก็ได้ ผู้โจมตีจะใส่ IP สุ่มทุกคำขอแล้วข้าม rate limit ไปทั้งหมด
+    """
+    peer = request.client.host if request.client else "unknown"
+    if not _is_trusted_proxy(peer):
+        return peer
+
+    forwarded = request.headers.get(settings.real_ip_header, "")
+    # X-Forwarded-For มีได้หลายค่า ตัวซ้ายสุดคือผู้ใช้ ส่วน CF-Connecting-IP มีค่าเดียว
+    candidate = forwarded.split(",")[0].strip()
+    if not candidate:
+        return peer
+    try:
+        ipaddress.ip_address(candidate)
+    except ValueError:
+        # ตัวคั่นที่เชื่อถือได้ส่งค่าเพี้ยนมา ถอยไปใช้ IP ของตัวคั่นดีกว่าเอาค่าขยะไปทำคีย์
+        return peer
+    return candidate
+
+
 def _client_key(request: Request) -> str:
     """
     คีย์ของผู้เรียก เก็บเป็นค่าแฮชไม่ใช่ IP ดิบ
@@ -85,7 +143,7 @@ def _client_key(request: Request) -> str:
     ที่อยู่ IP เป็นข้อมูลส่วนบุคคล การเก็บเพื่อจำกัดอัตราไม่จำเป็นต้องรู้ค่าจริง
     จึงแฮชทิ้งเพื่อไม่ให้มี IP ของผู้ใช้ค้างอยู่ในหน่วยความจำของเซิร์ฟเวอร์
     """
-    host = request.client.host if request.client else "unknown"
+    host = _client_ip(request)
     pepper = settings.hash_pepper or settings.encryption_key or "no-pepper"
     return hashlib.sha256(f"{pepper}|{host}".encode("utf-8")).hexdigest()[:32]
 

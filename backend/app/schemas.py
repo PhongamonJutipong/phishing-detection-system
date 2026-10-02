@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 MAX_BODY_LENGTH = 100_000
 
@@ -90,9 +90,31 @@ class LoginRequest(BaseModel):
     remember: bool = False
 
 
+class GoogleSignInRequest(BaseModel):
+    """เข้าสู่ระบบด้วยบัญชี Google — ส่ง ID token ที่ได้จากปุ่มของ Google มาให้เซิร์ฟเวอร์ตรวจ"""
+    id_token: str = Field(..., min_length=1, max_length=8192)
+    # จำเป็นเฉพาะตอนสร้างบัญชีใหม่ ถ้ามีบัญชีอยู่แล้วจะไม่ถูกใช้
+    accept_privacy_policy: bool = False
+    # จำเป็นเฉพาะกรณีอีเมลนี้มีบัญชีแบบรหัสผ่านอยู่แล้วและยังไม่เคยผูกกับ Google
+    link_password: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    remember: bool = False
+
+
 class DeleteAccountRequest(BaseModel):
-    # ขอรหัสผ่านซ้ำ กันคนอื่นที่หยิบเครื่องที่เข้าสู่ระบบค้างไว้มาลบบัญชี
-    password: str = Field(..., min_length=1, max_length=128)
+    """
+    ยืนยันตัวตนซ้ำก่อนลบบัญชี กันคนอื่นที่หยิบเครื่องที่เข้าสู่ระบบค้างไว้มาลบ
+
+    บัญชีที่สร้างจาก Google ไม่มีรหัสผ่าน จึงยืนยันด้วย ID token ใบใหม่แทนได้
+    ถ้าไม่รองรับทางนี้ ผู้ใช้ Google จะลบบัญชีตัวเองไม่ได้เลย ซึ่งขัดสิทธิ์ของเจ้าของข้อมูล
+    """
+    password: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    id_token: Optional[str] = Field(default=None, min_length=1, max_length=8192)
+
+    @model_validator(mode="after")
+    def need_one_proof(self):
+        if not self.password and not self.id_token:
+            raise ValueError("ต้องยืนยันด้วยรหัสผ่านหรือบัญชี Google อย่างใดอย่างหนึ่ง")
+        return self
 
 
 class UserProfile(BaseModel):

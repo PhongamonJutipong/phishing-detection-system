@@ -43,6 +43,29 @@ class InvalidCredentialsError(Exception):
     pass
 
 
+class GoogleSignInDisabledError(Exception):
+    """ไม่ได้ตั้ง GOOGLE_CLIENT_ID จึงไม่เปิดช่องทางนี้"""
+
+
+class InvalidGoogleTokenError(Exception):
+    """ID token ปลอม หมดอายุ ออกให้แอปอื่น หรืออีเมลยังไม่ได้ยืนยันกับ Google"""
+
+
+class ConsentRequiredError(Exception):
+    """สร้างบัญชีใหม่โดยยังไม่ได้ยอมรับนโยบายความเป็นส่วนตัว — ความยินยอมต้องชัดแจ้งเสมอ"""
+
+
+class PasswordRequiredToLinkError(Exception):
+    """
+    อีเมลนี้มีบัญชีแบบรหัสผ่านอยู่แล้วและยังไม่เคยผูกกับ Google
+
+    ระบบยังไม่มีการยืนยันอีเมลตอนสมัคร ใครก็สมัครอีเมลของคนอื่นไว้ก่อนได้
+    ถ้าปล่อยให้ Google sign-in เข้าบัญชีนั้นได้เลย เจ้าของอีเมลตัวจริงจะเดินเข้าไป
+    ในบัญชีที่คนอื่นตั้งรหัสผ่านไว้ แล้วคนนั้นยังเข้าถึงบัญชีได้ต่อ
+    จึงขอรหัสผ่านเดิมหนึ่งครั้งเพื่อพิสูจน์ว่าเป็นคนเดียวกันก่อนผูก
+    """
+
+
 def normalize_email(email: str) -> str:
     return email.strip().lower()
 
@@ -60,7 +83,11 @@ def hash_password(password: str) -> str:
     return f"scrypt${_SCRYPT_N}${_SCRYPT_R}${_SCRYPT_P}${b64(salt)}${b64(digest)}"
 
 
-def verify_password(password: str, stored: str) -> bool:
+def verify_password(password: str, stored: str | None) -> bool:
+    # บัญชีที่สร้างจาก Google ยังไม่มีรหัสผ่าน (stored เป็น None) ต้องตอบ False
+    # ไม่ใช่โยน exception ไม่งั้นหน้าที่เรียกตรง ๆ เช่นการลบบัญชีจะพังเป็น 500
+    if not stored:
+        return False
     try:
         scheme, n, r, p, salt, expected = stored.split("$")
         if scheme != "scrypt":
@@ -98,6 +125,44 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("ascii")).hexdigest()
 
 
+# แยกเป็นฟังก์ชันเดี่ยวเพื่อให้เทสต์แทนที่ด้วยตัวตรวจปลอมได้ โดยไม่ต้องยิงจริงไปที่ Google
+def verify_google_id_token(raw_token: str) -> str:
+    """
+    ตรวจ ID token จาก Google แล้วคืนอีเมลที่ยืนยันแล้ว
+
+    google-auth ตรวจลายเซ็นกับ public key ของ Google, ตรวจ iss, aud และวันหมดอายุให้ครบ
+    เราตรวจเพิ่มเองว่า email_verified เป็นจริง เพราะ token ที่ลายเซ็นถูกต้องแต่เจ้าของ
+    ยังไม่ยืนยันอีเมลกับ Google ใช้เป็นหลักฐานความเป็นเจ้าของอีเมลไม่ได้
+
+    ต้องออกเน็ตได้เพื่อดึง public key (google-auth แคชให้ตามอายุที่ Google กำหนด)
+    """
+    if not settings.google_client_id:
+        raise GoogleSignInDisabledError()
+
+    # import ตรงนี้ไม่ใช่ด้านบนไฟล์ เพื่อให้ระบบที่ไม่ได้เปิดใช้ Google ไม่ต้องโหลด library
+    from google.auth.transport import requests as google_requests
+    from google.oauth2 import id_token as google_id_token
+
+    try:
+        claims = google_id_token.verify_oauth2_token(
+            raw_token, google_requests.Request(), settings.google_client_id
+        )
+    except Exception as exc:
+        # ครอบกว้างโดยตั้งใจ: ValueError จาก token ผิด, ข้อผิดพลาดเครือข่ายตอนดึงกุญแจ
+        # ไม่ว่ากรณีใดก็ตอบเหมือนกันหมด ไม่ส่งรายละเอียดภายในออกไปให้ผู้เรียก
+        logger.log_warning(f"ตรวจ Google ID token ไม่ผ่าน: {type(exc).__name__}")
+        raise InvalidGoogleTokenError() from exc
+
+    if not claims.get("email_verified"):
+        logger.log_warning("Google ID token ผ่านลายเซ็นแต่ email_verified ไม่เป็นจริง")
+        raise InvalidGoogleTokenError()
+
+    email = normalize_email(claims.get("email") or "")
+    if not is_valid_email(email):
+        raise InvalidGoogleTokenError()
+    return email
+
+
 class AuthService:
     def __init__(self, db: Session):
         self.db = db
@@ -131,6 +196,62 @@ class AuthService:
         if not verify_password(password, user.password_hash):
             raise InvalidCredentialsError()
         return user
+
+    def sign_in_with_google(
+        self, email: str, accept_privacy_policy: bool = False, link_password: str | None = None
+    ) -> tuple[AppUser, bool]:
+        """
+        เข้าสู่ระบบด้วยอีเมลที่ Google ยืนยันแล้ว คืน (บัญชี, เป็นบัญชีที่เพิ่งสร้างหรือไม่)
+
+        ผู้เรียกต้องตรวจ ID token มาก่อนแล้ว เมธอดนี้รับเฉพาะอีเมลที่ยืนยันแล้วเท่านั้น
+        ห้ามเรียกด้วยอีเมลที่ผู้ใช้พิมพ์เอง ไม่งั้นใครก็สวมรอยเป็นเจ้าของอีเมลใดก็ได้
+
+        สามกรณี
+          1. ยังไม่มีบัญชี          -> สร้างใหม่ ไม่มีรหัสผ่าน (ต้องยอมรับนโยบายก่อน)
+          2. มีบัญชีที่ผูก Google แล้ว -> เข้าสู่ระบบได้เลย
+          3. มีบัญชีแบบรหัสผ่าน ยังไม่ผูก -> ขอรหัสผ่านเดิมหนึ่งครั้งเพื่อพิสูจน์ตัวตน
+        """
+        email = normalize_email(email)
+        now = datetime.now(timezone.utc)
+        user = self.db.query(AppUser).filter(AppUser.email_hash == email_lookup_hash(email)).first()
+
+        if user is None:
+            if not accept_privacy_policy:
+                raise ConsentRequiredError()
+            user = AppUser(
+                email_hash=email_lookup_hash(email),
+                email_encrypted=get_cipher().encrypt(email.encode("utf-8")).decode("ascii"),
+                password_hash=None,
+                google_linked_at=now,
+                consent_version=settings.privacy_policy_version,
+                consent_at=now,
+                created_at=now,
+            )
+            self.db.add(user)
+            try:
+                self.db.commit()
+            except IntegrityError as exc:
+                # มีคนสมัครอีเมลเดียวกันแทรกเข้ามาระหว่างนี้พอดี
+                self.db.rollback()
+                raise EmailTakenError() from exc
+            logger.log_info(f"สร้างบัญชีจากการเข้าสู่ระบบด้วย Google user_id={user.user_id}")
+            return user, True
+
+        if user.google_linked_at is None and user.password_hash:
+            if link_password is None:
+                raise PasswordRequiredToLinkError()
+            if not verify_password(link_password, user.password_hash):
+                raise InvalidCredentialsError()
+            user.google_linked_at = now
+            self.db.commit()
+            logger.log_info(f"ผูกบัญชีเดิมเข้ากับ Google user_id={user.user_id}")
+            return user, False
+
+        if user.google_linked_at is None:
+            # บัญชีไม่มีทั้งรหัสผ่านและการผูก (ไม่ควรเกิด) ถือว่า Google พิสูจน์ความเป็นเจ้าของแล้ว
+            user.google_linked_at = now
+            self.db.commit()
+        return user, False
 
     def create_session(self, user: AppUser, remember: bool = False) -> tuple[str, datetime]:
         now = datetime.now(timezone.utc)

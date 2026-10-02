@@ -3,7 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, map, tap } from 'rxjs';
 
 import type { TextKey } from './i18n.service';
-import { AuthResponse, UserProfile } from './models';
+import { AuthConfig, AuthResponse, UserProfile } from './models';
 
 const TOKEN_KEY = 'auth_token';
 
@@ -40,6 +40,32 @@ export class AuthService {
       .pipe(map((res) => this.accept(res, remember)));
   }
 
+  /** ค่าตั้งต้นของระบบ เช่น เปิดใช้ Google หรือไม่ (อ่านตอนทำงาน ไม่ใช่ตอน build) */
+  authConfig(): Observable<AuthConfig> {
+    return this.http.get<AuthConfig>('api/v1/auth/config');
+  }
+
+  /**
+   * เข้าสู่ระบบด้วย ID token จาก Google (สมัครให้เองถ้ายังไม่มีบัญชี)
+   *
+   * linkPassword จำเป็นเฉพาะเมื่อเซิร์ฟเวอร์ตอบ PASSWORD_REQUIRED_TO_LINK
+   * ซึ่งเกิดเมื่ออีเมลนี้มีบัญชีแบบรหัสผ่านอยู่แล้วและยังไม่เคยผูกกับ Google
+   */
+  googleSignIn(
+    idToken: string,
+    options: { acceptPrivacyPolicy?: boolean; linkPassword?: string; remember?: boolean } = {},
+  ): Observable<UserProfile> {
+    const remember = options.remember ?? false;
+    return this.http
+      .post<AuthResponse>('api/v1/auth/google', {
+        id_token: idToken,
+        accept_privacy_policy: options.acceptPrivacyPolicy ?? false,
+        link_password: options.linkPassword ?? null,
+        remember,
+      })
+      .pipe(map((res) => this.accept(res, remember)));
+  }
+
   /** ยกเลิก token ที่เซิร์ฟเวอร์ด้วย ไม่ใช่แค่ลบในเบราว์เซอร์ */
   logout(): Observable<void> {
     return this.http
@@ -60,9 +86,15 @@ export class AuthService {
     );
   }
 
-  deleteAccount(password: string): Observable<void> {
+  /**
+   * ลบบัญชีถาวร ยืนยันด้วยรหัสผ่าน หรือด้วย ID token ใบใหม่จาก Google
+   *
+   * บัญชีที่สร้างจาก Google ไม่มีรหัสผ่าน ถ้าไม่มีทางที่สองจะลบบัญชีตัวเองไม่ได้เลย
+   */
+  deleteAccount(proof: { password?: string; idToken?: string }): Observable<void> {
+    const body = proof.idToken ? { id_token: proof.idToken } : { password: proof.password };
     return this.http
-      .delete<void>('api/v1/auth/me', { headers: this.headers(), body: { password } })
+      .delete<void>('api/v1/auth/me', { headers: this.headers(), body })
       .pipe(tap(() => this.clear()));
   }
 

@@ -920,6 +920,15 @@ body.centered { display: grid; place-items: center; min-height: 100vh; padding: 
 .checkbox.consent { align-items: flex-start; margin: 4px 0 20px; text-align: left; font-size: 13.5px; }
 .checkbox.consent input { margin-top: 3px; flex-shrink: 0; }
 
+/* เข้าสู่ระบบด้วยบัญชี Google */
+.google-signin { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+/* ปุ่มของ Google เป็น iframe ที่กำหนดความกว้างมาเอง จัดให้กลางและไม่ล้นจอแคบ */
+.google-signin > div:first-child { max-width: 100%; overflow: hidden; }
+.google-step { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 10px; }
+.google-step .field { margin: 0; }
+.auth-note { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+.auth-note strong { color: var(--text); }
+
 /* ==========================================================================
    หน้าบัญชีของฉัน และนโยบายความเป็นส่วนตัว
    ========================================================================== */

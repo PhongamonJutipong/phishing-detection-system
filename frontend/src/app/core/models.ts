@@ -59,6 +59,12 @@ export interface AuthResponse {
   user: UserProfile;
 }
 
+/** GET /api/v1/auth/config — ค่าที่หน้าเว็บต้องรู้ตอนทำงาน ไม่ใช่ตอน build */
+export interface AuthConfig {
+  /** null = ระบบนี้ไม่ได้เปิดการเข้าสู่ระบบด้วย Google */
+  google_client_id: string | null;
+}
+
 export interface RecentScan {
   scan_time: string | null;
   probability: number | null;

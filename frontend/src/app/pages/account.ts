@@ -101,7 +101,7 @@ export class Account {
   protected deleteAccount(): void {
     this.busy.set(true);
     this.error.set(null);
-    this.auth.deleteAccount(this.password()).subscribe({
+    this.auth.deleteAccount({ password: this.password() }).subscribe({
       next: () => {
         this.busy.set(false);
         this.deleted.set(true);

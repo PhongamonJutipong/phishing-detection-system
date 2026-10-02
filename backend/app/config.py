@@ -64,16 +64,35 @@ class Settings(BaseSettings):
     # ขนาดสูงสุดของตาราง rate limit ในหน่วยความจำ กัน memory โตไม่จำกัด
     rate_limit_max_clients: int = 10000
 
+    # ===== เมื่อมี reverse proxy หรือ Cloudflare Tunnel คั่นอยู่ =====
+    # ปกติ rate limit หาตัวตนผู้เรียกจาก IP ของคู่สนทนาโดยตรง ถ้ามีตัวคั่น
+    # คู่สนทนาจะกลายเป็นตัวคั่นเสมอ ผู้ใช้ทุกคนจึงไปรวมอยู่ในตัวนับถังเดียวกัน
+    #
+    # ตั้ง trusted_proxies เป็น IP หรือ CIDR ของตัวคั่น (คั่นด้วย comma) แล้วระบบจะอ่าน
+    # IP จริงของผู้ใช้จาก header ที่ตั้งใน real_ip_header
+    #
+    # ว่างไว้ = ไม่เชื่อ header ใดเลย ซึ่งเป็นค่าที่ปลอดภัยและเป็นพฤติกรรมเดิม
+    # **ห้ามตั้งกว้างเกินจริง** ถ้าเชื่อ header จากใครก็ได้ ผู้โจมตีจะปลอม header
+    # เป็น IP สุ่มทุกคำขอแล้วข้าม rate limit ได้ทั้งหมด
+    trusted_proxies: str = ""
+    # cloudflared/Cloudflare ส่ง CF-Connecting-IP, nginx/traefik มักส่ง X-Forwarded-For
+    real_ip_header: str = "CF-Connecting-IP"
+
     # ===== บัญชีผู้ใช้ =====
     # รุ่นของนโยบายความเป็นส่วนตัวที่ผู้สมัครกดยอมรับ บันทึกคู่กับบัญชีเป็นหลักฐานความยินยอม
     # เปลี่ยนค่านี้ทุกครั้งที่แก้เนื้อหานโยบาย จะได้รู้ว่าแต่ละคนยินยอมกับฉบับไหน
-    privacy_policy_version: str = "2026-09-24"
+    privacy_policy_version: str = "2026-10-02"
     # อายุของการเข้าสู่ระบบ: แบบปกติสั้น เพื่อลดความเสี่ยงเมื่อลืมออกจากระบบบนเครื่องสาธารณะ
     session_hours: int = 12
     # เมื่อเลือก "จดจำการเข้าสู่ระบบ"
     session_remember_days: int = 30
     # จำกัดคำขอสมัคร/เข้าสู่ระบบต่อ IP ต่อนาที กันการสุ่มเดารหัสผ่าน (0 = ไม่จำกัด)
     auth_rate_limit_per_minute: int = 10
+
+    # OAuth client ID จาก Google Cloud Console — ว่าง = ปิดการเข้าสู่ระบบด้วย Google
+    # ค่านี้ "ไม่ใช่ความลับ" ถูกฝังในหน้าเว็บอยู่แล้ว จึงไม่ต้องปกปิดเหมือน admin_token
+    # ระบบไม่ต้องมี client secret เพราะใช้วิธีตรวจ ID token ไม่ใช่ OAuth code flow
+    google_client_id: str = ""
 
     # Logger
     log_file: str = str(Path(__file__).parent.parent / "logs" / "backend.log")

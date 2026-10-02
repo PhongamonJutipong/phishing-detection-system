@@ -127,7 +127,14 @@ class AppUser(Base):
     # อีเมลที่เข้ารหัส Fernet ไว้แสดงให้เจ้าของบัญชีดู ถอดได้เฉพาะเซิร์ฟเวอร์ที่มี ENCRYPTION_KEY
     email_encrypted = Column(Text, nullable=False)
     # scrypt พร้อม salt สุ่มต่อบัญชี รูปแบบ scrypt$n$r$p$salt$hash
-    password_hash = Column(String(255), nullable=False)
+    # NULL = บัญชีที่สร้างจาก Google และยังไม่มีรหัสผ่าน เข้าสู่ระบบได้ทาง Google เท่านั้น
+    password_hash = Column(String(255), nullable=True)
+    # เวลาที่ยืนยันว่าอีเมลนี้เป็นของเจ้าของบัญชี Google จริง (NULL = ยังไม่เคยผูก)
+    #
+    # ไม่เก็บ Google user id (sub) ไว้ด้วย เพราะ email_hash ใช้ค้นหาได้อยู่แล้ว
+    # และการเก็บตัวระบุตัวตนของบุคคลที่สามเพิ่มเกินความจำเป็น
+    # ผลข้างเคียงที่ยอมรับ: ถ้าผู้ใช้เปลี่ยนอีเมลของบัญชี Google จะกลายเป็นบัญชีใหม่
+    google_linked_at = Column(DateTime(timezone=True), nullable=True)
     # หลักฐานความยินยอม: ยอมรับนโยบายความเป็นส่วนตัวฉบับไหน เมื่อไร
     consent_version = Column(String(20), nullable=False)
     consent_at = Column(DateTime(timezone=True), nullable=False)

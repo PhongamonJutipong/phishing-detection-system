@@ -188,6 +188,21 @@ const TEXT = {
     authErrOffline: 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบว่าระบบทำงานอยู่',
     authErrUnknown: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
 
+    // เข้าสู่ระบบด้วยบัญชี Google
+    googleWorking: 'กำลังยืนยันกับ Google…',
+    googleErrScript: 'โหลดบริการของ Google ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อ',
+    googleErrToken: 'ยืนยันบัญชี Google ไม่สำเร็จ กรุณาลองใหม่',
+    googleErrDisabled: 'ระบบนี้ยังไม่ได้เปิดการเข้าสู่ระบบด้วยบัญชี Google',
+    googleConsentTitle: 'สร้างบัญชีใหม่ด้วยอีเมลนี้',
+    googleConsentCheck: 'ฉันยอมรับนโยบายความเป็นส่วนตัว',
+    googleConsentSubmit: 'สร้างบัญชี',
+    googleConsentRequired: 'ต้องยอมรับนโยบายความเป็นส่วนตัวก่อนสร้างบัญชี',
+    googleLinkTitle: 'อีเมลนี้มีบัญชีที่ใช้รหัสผ่านอยู่แล้ว',
+    googleLinkHelp: 'กรอกรหัสผ่านเดิมหนึ่งครั้งเพื่อยืนยันว่าเป็นบัญชีของคุณ หลังจากนี้เข้าสู่ระบบด้วย Google ได้เลย',
+    googleLinkPassword: 'รหัสผ่านเดิม',
+    googleLinkSubmit: 'ผูกบัญชี',
+    googleLinkWrong: 'รหัสผ่านเดิมไม่ถูกต้อง',
+
     // หน้าบัญชีของฉัน
     accountSub: 'ข้อมูลทั้งหมดที่ระบบเก็บเกี่ยวกับบัญชีของคุณมีเท่าที่แสดงด้านล่างนี้',
     accountEmail: 'อีเมล',
@@ -380,6 +395,21 @@ const TEXT = {
     authErrTooMany: 'Too many attempts. Please wait a moment and try again.',
     authErrOffline: 'Cannot reach the server. Check that the system is running.',
     authErrUnknown: 'Something went wrong. Please try again.',
+
+    // Sign in with Google
+    googleWorking: 'Verifying with Google…',
+    googleErrScript: 'Could not load Google services. Please check your connection.',
+    googleErrToken: 'Could not verify your Google account. Please try again.',
+    googleErrDisabled: 'Signing in with Google is not enabled on this system.',
+    googleConsentTitle: 'Create a new account with this email',
+    googleConsentCheck: 'I accept the privacy policy',
+    googleConsentSubmit: 'Create account',
+    googleConsentRequired: 'You must accept the privacy policy before creating an account.',
+    googleLinkTitle: 'This email already has a password account',
+    googleLinkHelp: 'Enter your existing password once to confirm the account is yours. After that you can sign in with Google directly.',
+    googleLinkPassword: 'Existing password',
+    googleLinkSubmit: 'Link account',
+    googleLinkWrong: 'That password is not correct.',
 
     accountSub: 'This is everything the system stores about your account.',
     accountEmail: 'Email',

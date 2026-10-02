@@ -78,8 +78,34 @@ PhishMail เป็นส่วนขยาย Chrome ที่ตรวจจ�
 | ความยินยอม | ฉบับของนโยบายและเวลาที่ยอมรับ |
 | วันที่สมัคร | วันเวลาที่สร้างบัญชี |
 | การเข้าสู่ระบบ | เก็บเฉพาะค่าแฮช SHA-256 ของ token และวันหมดอายุ (12 ชั่วโมง หรือ 30 วันเมื่อเลือกจดจำ) ถูกลบเมื่อออกจากระบบหรือหมดอายุ |
+| การผูกกับบัญชี Google | วันเวลาที่ยืนยันความเป็นเจ้าของอีเมลกับ Google (เฉพาะผู้ที่ใช้ช่องทางนี้) |
 
 ระบบ**ไม่ขอ**ชื่อ เบอร์โทรศัพท์ หรือข้อมูลอื่นนอกเหนือจากนี้
+
+### 4.2 การเข้าสู่ระบบด้วยบัญชี Google (ไม่บังคับ)
+
+เปิดใช้เฉพาะเมื่อผู้ดูแลระบบตั้งค่า `GOOGLE_CLIENT_ID` ไว้ ถ้าไม่ได้ตั้ง
+หน้าเว็บจะไม่แสดงช่องทางนี้และ**ไม่ติดต่อกับ Google เลย**
+
+เมื่อเปิดใช้และผู้ใช้เลือกช่องทางนี้
+
+- หน้าเข้าสู่ระบบจะโหลดสคริปต์ของ Google จาก `accounts.google.com`
+  Google จึงทราบว่ามีการเปิดหน้านี้ ตามนโยบายความเป็นส่วนตัวของ Google เอง
+- ระบบรับเฉพาะ **ID token** ที่ Google ออกให้ แล้วส่งให้เซิร์ฟเวอร์ตรวจลายเซ็น
+  เซิร์ฟเวอร์ต้องติดต่อ Google เพื่อขอกุญแจสาธารณะมาตรวจ
+- จาก token ระบบใช้เฉพาะ **อีเมลที่ Google ยืนยันแล้ว** เท่านั้น
+  **ไม่เก็บ** ชื่อ รูปโปรไฟล์ หรือรหัสผู้ใช้ของ Google (`sub`)
+  อีเมลถูกจัดเก็บด้วยวิธีเดียวกับข้อ 4.1 คือเข้ารหัสและเก็บ HMAC ไว้ค้นหา
+- ระบบ**ไม่ขอสิทธิ์เข้าถึงกล่องจดหมาย ปฏิทิน หรือข้อมูลอื่นใด**ในบัญชี Google
+  และไม่เก็บ access token หรือ refresh token ไว้เลย
+
+การสร้างบัญชีผ่านช่องทางนี้ยังต้องกดยอมรับนโยบายนี้ก่อนเช่นเดียวกับการสมัครด้วยรหัสผ่าน
+
+ถ้าอีเมลนั้นมีบัญชีที่ใช้รหัสผ่านอยู่แล้ว ระบบจะขอรหัสผ่านเดิมหนึ่งครั้งก่อนผูกบัญชีเข้าด้วยกัน
+เพื่อไม่ให้ผู้ที่สมัครอีเมลของผู้อื่นไว้ก่อนเข้าถึงบัญชีได้
+
+ผู้ที่สร้างบัญชีด้วย Google ลบบัญชีของตัวเองได้เหมือนกัน โดยยืนยันด้วยการเข้าสู่ระบบ
+Google อีกครั้งแทนการกรอกรหัสผ่าน
 
 ## 5. ข้อมูลที่เก็บไว้ในเครื่องผู้ใช้
 
@@ -212,8 +238,36 @@ this policy; the accepted version and time are recorded as proof of consent.
 | Consent | Policy version and time of acceptance |
 | Sign-up date | When the account was created |
 | Logins | Only a SHA-256 hash of the token and its expiry (12 hours, or 30 days with "keep me logged in"). Removed on logout or expiry |
+| Google link | The time the email was verified with Google (only for accounts that use it) |
 
 The system does **not** ask for a name, phone number, or anything else.
+
+### 4.2 Optional sign-in with Google
+
+Available only when an administrator sets `GOOGLE_CLIENT_ID`. Without it the web
+page does not show this option and **never contacts Google at all**.
+
+When it is enabled and the user chooses it:
+
+- The login page loads Google's script from `accounts.google.com`, so Google
+  learns that the page was opened, under Google's own privacy policy.
+- The system accepts only the **ID token** issued by Google and sends it to the
+  server, which contacts Google for the public keys needed to check its signature.
+- From that token the system uses only the **email address Google has verified**.
+  It does **not** store the name, profile picture, or Google user id (`sub`). The
+  email is stored exactly as in 4.1: encrypted, with an HMAC for lookup.
+- The system **requests no access to mail, calendar, or any other data** in the
+  Google account, and stores no access or refresh tokens.
+
+Creating an account this way still requires accepting this policy first, just
+like signing up with a password.
+
+If the email already has a password account, the system asks for that existing
+password once before linking the two, so that someone who registered another
+person's email beforehand cannot gain access.
+
+Accounts created with Google can be deleted by their owner too, confirming with
+another Google sign-in instead of a password.
 
 ## 5. Data stored locally
 

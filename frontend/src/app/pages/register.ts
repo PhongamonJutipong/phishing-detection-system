@@ -3,6 +3,7 @@ import { Router, RouterLink } from '@angular/router';
 
 import { AuthService, authErrorText } from '../core/auth.service';
 import { I18nService, TextKey } from '../core/i18n.service';
+import { GoogleSignIn } from '../shared/google-sign-in';
 import { ShieldIcon } from '../shared/shield-icon';
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -16,7 +17,7 @@ const MIN_PASSWORD_LENGTH = 8;
  */
 @Component({
   selector: 'app-register',
-  imports: [RouterLink, ShieldIcon],
+  imports: [RouterLink, ShieldIcon, GoogleSignIn],
   template: `
     <main class="auth">
       <a class="wordmark auth-brand" routerLink="/">
@@ -61,6 +62,12 @@ const MIN_PASSWORD_LENGTH = 8;
         <p class="auth-switch">
           {{ t().registerHaveAccount }} <a routerLink="/login">{{ t().loginTitle }}</a>
         </p>
+
+        <div class="auth-divider"><span>{{ t().loginOr }}</span></div>
+
+        <!-- ส่งค่า consent ของฟอร์มนี้ไปด้วย ผู้ใช้ติ๊กแล้วก็ไม่ต้องถามซ้ำ
+             ถ้ายังไม่ติ๊ก คอมโพเนนต์จะถามเองก่อนสร้างบัญชี -->
+        <app-google-sign-in [consentAlreadyGiven]="consent()" (signedIn)="afterSignIn()" />
       </div>
 
       <p class="auth-foot"><a routerLink="/">{{ t().loginBack }}</a></p>
@@ -80,6 +87,10 @@ export class Register {
   protected readonly loading = signal(false);
   protected readonly error = signal<TextKey | null>(null);
 
+  protected afterSignIn(): void {
+    this.router.navigateByUrl('/account');
+  }
+
   protected submit(): void {
     const problem = this.validate();
     this.error.set(problem);
@@ -88,7 +99,7 @@ export class Register {
     }
     this.loading.set(true);
     this.auth.register(this.email().trim(), this.password()).subscribe({
-      next: () => this.router.navigateByUrl('/account'),
+      next: () => this.afterSignIn(),
       error: (err) => {
         this.loading.set(false);
         this.error.set(authErrorText(err));

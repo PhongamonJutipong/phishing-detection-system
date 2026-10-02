@@ -219,6 +219,89 @@ def test_rate_limiter_does_not_store_raw_ip(client):
     analyze_limiter.reset()
 
 
+class TestRealClientIp:
+    """
+    หา IP จริงของผู้ใช้เมื่อมีตัวคั่น (reverse proxy / Cloudflare Tunnel)
+
+    ใช้ Request ปลอมแทนการยิงผ่าน client เพราะ TestClient ตั้ง IP ของคู่สนทนาเองไม่ได้
+    """
+
+    @staticmethod
+    def _request(peer: str, headers: dict[str, str] | None = None):
+        from fastapi import Request
+
+        raw = [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
+        return Request({"type": "http", "client": (peer, 1234), "headers": raw})
+
+    def test_uses_peer_ip_when_no_proxy_configured(self):
+        """ค่าเริ่มต้นคือไม่เชื่อ header ใดเลย (trusted_proxies ว่าง)"""
+        from app.api import rate_limit
+
+        req = self._request("203.0.113.9", {"CF-Connecting-IP": "198.51.100.7"})
+        assert rate_limit._client_ip(req) == "203.0.113.9"
+
+    def test_header_from_untrusted_peer_is_ignored(self, monkeypatch):
+        """
+        สำคัญที่สุด: ผู้โจมตีที่ไม่ได้อยู่ในรายการต้องปลอม header ไม่ได้
+
+        ถ้าข้อนี้พัง ผู้โจมตีจะใส่ IP สุ่มทุกคำขอแล้วข้าม rate limit ได้ทั้งหมด
+        """
+        from app.api import rate_limit
+
+        monkeypatch.setattr(rate_limit, "_TRUSTED_PROXIES", rate_limit._parse_trusted_proxies("127.0.0.1"))
+        req = self._request("203.0.113.9", {"CF-Connecting-IP": "198.51.100.7"})
+        assert rate_limit._client_ip(req) == "203.0.113.9"
+
+    def test_header_from_trusted_peer_is_used(self, monkeypatch):
+        from app.api import rate_limit
+
+        monkeypatch.setattr(rate_limit, "_TRUSTED_PROXIES", rate_limit._parse_trusted_proxies("127.0.0.1"))
+        req = self._request("127.0.0.1", {"CF-Connecting-IP": "198.51.100.7"})
+        assert rate_limit._client_ip(req) == "198.51.100.7"
+
+    def test_trusted_cidr_range(self, monkeypatch):
+        from app.api import rate_limit
+
+        monkeypatch.setattr(rate_limit, "_TRUSTED_PROXIES", rate_limit._parse_trusted_proxies("172.16.0.0/12"))
+        req = self._request("172.18.0.5", {"CF-Connecting-IP": "198.51.100.7"})
+        assert rate_limit._client_ip(req) == "198.51.100.7"
+
+    def test_takes_leftmost_of_forwarded_list(self, monkeypatch):
+        """X-Forwarded-For มีได้หลายค่า ตัวซ้ายสุดคือผู้ใช้"""
+        from app.api import rate_limit
+
+        monkeypatch.setattr(rate_limit, "_TRUSTED_PROXIES", rate_limit._parse_trusted_proxies("127.0.0.1"))
+        monkeypatch.setattr(settings, "real_ip_header", "X-Forwarded-For")
+        req = self._request("127.0.0.1", {"X-Forwarded-For": "198.51.100.7, 203.0.113.9"})
+        assert rate_limit._client_ip(req) == "198.51.100.7"
+
+    @pytest.mark.parametrize("bad", ["", "   ", "not-an-ip", "999.999.999.999", "198.51.100.7; DROP TABLE"])
+    def test_falls_back_when_header_is_unusable(self, monkeypatch, bad):
+        """ตัวคั่นที่เชื่อถือได้ส่งค่าเพี้ยนมา ต้องถอยไปใช้ IP ของตัวคั่น ไม่ใช่เอาค่าขยะไปทำคีย์"""
+        from app.api import rate_limit
+
+        monkeypatch.setattr(rate_limit, "_TRUSTED_PROXIES", rate_limit._parse_trusted_proxies("127.0.0.1"))
+        req = self._request("127.0.0.1", {"CF-Connecting-IP": bad})
+        assert rate_limit._client_ip(req) == "127.0.0.1"
+
+    def test_malformed_trusted_proxies_setting_trusts_nobody(self):
+        """ค่าตั้งผิดรูปแบบต้องกลายเป็น 'ไม่เชื่อใคร' ไม่ใช่ 'เชื่อทุกคน'"""
+        from app.api import rate_limit
+
+        assert rate_limit._parse_trusted_proxies("ไม่ใช่ไอพี, , 10.0.0.300") == []
+
+    def test_users_behind_proxy_get_separate_buckets(self, monkeypatch):
+        """ปัญหาที่การแก้นี้ตั้งใจแก้: ผู้ใช้หลังตัวคั่นต้องไม่ไปรวมตัวนับถังเดียวกัน"""
+        from app.api import rate_limit
+
+        monkeypatch.setattr(rate_limit, "_TRUSTED_PROXIES", rate_limit._parse_trusted_proxies("127.0.0.1"))
+        keys = {
+            rate_limit._client_key(self._request("127.0.0.1", {"CF-Connecting-IP": ip}))
+            for ip in ("198.51.100.1", "198.51.100.2", "198.51.100.3")
+        }
+        assert len(keys) == 3
+
+
 def test_purge_endpoint_requires_admin_token(client):
     assert client.post("/api/v1/data/purge").status_code == 401
     resp = client.post("/api/v1/data/purge", headers={"X-Admin-Token": "test-admin-token"})
