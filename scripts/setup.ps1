@@ -97,7 +97,16 @@ if (Test-Path "backend\.env") {
     $env_text = $env_text -replace "(?m)^ENCRYPTION_KEY=.*$", "ENCRYPTION_KEY=$key"
     $env_text = $env_text -replace "(?m)^ADMIN_TOKEN=.*$",    "ADMIN_TOKEN=$token"
     $env_text = $env_text -replace "(?m)^HASH_PEPPER=.*$",    "HASH_PEPPER=$pepper"
-    Set-Content "backend\.env" $env_text -Encoding utf8 -NoNewline
+    # ต้องเขียนเป็น UTF-8 "ไม่มี BOM" — ตรงข้ามกับไฟล์ .ps1 ที่ต้องมี BOM
+    # Set-Content -Encoding utf8 บน Windows PowerShell 5.1 ใส่ BOM ให้เสมอ
+    # BOM จะไปติดหน้าชื่อคีย์บรรทัดแรก ทำให้ pydantic อ่านเป็นคีย์ที่ไม่รู้จักแล้วโยน
+    # extra_forbidden ตอนรัน uvicorn เอง (ใน Docker ไม่เห็นปัญหาเพราะบรรทัดแรกคือ
+    # DATABASE_URL ซึ่ง docker-compose.yml ทับค่าให้อยู่แล้ว)
+    [System.IO.File]::WriteAllText(
+        (Join-Path $repo "backend\.env"),
+        $env_text,
+        (New-Object System.Text.UTF8Encoding $false)
+    )
 
     Ok "สร้างแล้ว พร้อมกุญแจเข้ารหัสและ admin token แบบสุ่ม"
     Warn "ไฟล์นี้มีความลับ อยู่ใน .gitignore แล้ว อย่านำขึ้น git"
